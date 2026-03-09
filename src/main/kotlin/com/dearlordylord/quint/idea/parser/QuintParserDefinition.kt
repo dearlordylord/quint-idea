@@ -38,8 +38,7 @@ class QuintParserDefinition : ParserDefinition {
         val COMMENTS: TokenSet = PSIElementTypeFactory.createTokenSet(
             QuintLanguage.INSTANCE,
             QuintLexer.LINE_COMMENT,
-            QuintLexer.COMMENT,
-            QuintLexer.DOCCOMMENT
+            QuintLexer.COMMENT
         )
 
         val WHITESPACE: TokenSet = PSIElementTypeFactory.createTokenSet(

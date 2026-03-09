@@ -351,9 +351,9 @@ CAP_ID : ([A-Z][a-zA-Z0-9_]*|[_][a-zA-Z0-9_]+);
 
 // Unix script prefix, only valid as the first line of a file
 HASHBANG_LINE : '#!' .*? '\n';
-DOCCOMMENT    : '///' .*? '\n';
+DOCCOMMENT    : '///' ~[\n]* ;
 
 // comments and whitespaces
-LINE_COMMENT    :   '//' .*? '\n'   -> skip ;
-COMMENT         :   '/*' .*? '*/'   -> skip ;
-WS              :   [ \t\r\n]+      -> skip ; // skip spaces, tabs, newlines
+LINE_COMMENT    :   '//' ~[\n]*     -> channel(HIDDEN) ;
+COMMENT         :   '/*' .*? '*/'   -> channel(HIDDEN) ;
+WS              :   [ \t\r\n]+      -> channel(HIDDEN) ;
