@@ -2,6 +2,8 @@ package com.dearlordylord.quint.idea.parser
 
 import com.dearlordylord.quint.idea.QuintLanguage
 import com.dearlordylord.quint.idea.psi.QuintFile
+import com.dearlordylord.quint.idea.psi.QuintNamedElement
+import com.dearlordylord.quint.idea.psi.QuintQualIdNode
 import com.intellij.lang.ASTNode
 import com.intellij.lang.ParserDefinition
 import com.intellij.lang.PsiParser
@@ -14,6 +16,7 @@ import com.intellij.psi.tree.IFileElementType
 import com.intellij.psi.tree.TokenSet
 import org.antlr.intellij.adaptor.lexer.ANTLRLexerAdaptor
 import org.antlr.intellij.adaptor.lexer.PSIElementTypeFactory
+import org.antlr.intellij.adaptor.lexer.RuleIElementType
 import org.antlr.intellij.adaptor.psi.ANTLRPsiNode
 
 class QuintParserDefinition : ParserDefinition {
@@ -65,7 +68,26 @@ class QuintParserDefinition : ParserDefinition {
 
     override fun getStringLiteralElements(): TokenSet = STRINGS
 
-    override fun createElement(node: ASTNode): PsiElement = ANTLRPsiNode(node)
+    override fun createElement(node: ASTNode): PsiElement {
+        val type = node.elementType
+        if (type is RuleIElementType) {
+            when (type.ruleIndex) {
+                QuintParser.RULE_operDef,
+                QuintParser.RULE_typeDef,
+                QuintParser.RULE_module,
+                QuintParser.RULE_parameter,
+                QuintParser.RULE_annotatedParameter -> return QuintNamedElement(node)
+                QuintParser.RULE_qualId -> return QuintQualIdNode(node)
+                QuintParser.RULE_declaration -> {
+                    val firstChildText = node.firstChildNode?.text
+                    if (firstChildText in listOf("const", "var", "assume")) {
+                        return QuintNamedElement(node)
+                    }
+                }
+            }
+        }
+        return ANTLRPsiNode(node)
+    }
 
     override fun createFile(viewProvider: FileViewProvider): PsiFile = QuintFile(viewProvider)
 }

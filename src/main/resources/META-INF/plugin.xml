@@ -48,6 +48,11 @@
             language="Quint"
             implementationClass="com.dearlordylord.quint.idea.completion.QuintCompletionContributor"/>
 
+        <!-- References & Find Usages -->
+        <lang.findUsagesProvider
+            language="Quint"
+            implementationClass="com.dearlordylord.quint.idea.references.QuintFindUsagesProvider"/>
+
         <!-- External annotator (diagnostics) -->
         <externalAnnotator
             language="Quint"

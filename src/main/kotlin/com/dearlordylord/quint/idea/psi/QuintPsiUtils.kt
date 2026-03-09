@@ -25,6 +25,12 @@ object QuintPsiUtils {
     val DOCUMENTED_DECLARATION_RULE: RuleIElementType get() = ruleTypes[QuintParser.RULE_documentedDeclaration]
     val INSTANCE_MOD_RULE: RuleIElementType get() = ruleTypes[QuintParser.RULE_instanceMod]
     val NORMAL_CALL_NAME_RULE: RuleIElementType get() = ruleTypes[QuintParser.RULE_normalCallName]
+    val PARAMETER_RULE: RuleIElementType get() = ruleTypes[QuintParser.RULE_parameter]
+    val ANNOTATED_PARAMETER_RULE: RuleIElementType get() = ruleTypes[QuintParser.RULE_annotatedParameter]
+    val LAMBDA_UNSUGARED_RULE: RuleIElementType get() = ruleTypes[QuintParser.RULE_lambdaUnsugared]
+    val LAMBDA_TUPLE_SUGAR_RULE: RuleIElementType get() = ruleTypes[QuintParser.RULE_lambdaTupleSugar]
+    val IDENT_OR_HOLE_RULE: RuleIElementType get() = ruleTypes[QuintParser.RULE_identOrHole]
+    val TYPE_DEF_HEAD_RULE: RuleIElementType get() = ruleTypes[QuintParser.RULE_typeDefHead]
 
     /**
      * Find all module elements in a file.
@@ -58,9 +64,16 @@ object QuintPsiUtils {
                 qualId?.text
             }
             QuintParser.RULE_declaration -> {
-                // delegation: check sub-rule
-                val child = declaration.firstChild
-                if (child != null) getDeclarationName(child) else null
+                val child = declaration.firstChild ?: return null
+                val childType = child.node?.elementType
+                if (childType is RuleIElementType) {
+                    // Sub-rule: operDef, typeDef, importMod, etc.
+                    getDeclarationName(child)
+                } else {
+                    // Keyword-led: const/var/assume — name is in qualId or identOrHole child
+                    findFirstChildOfRule(declaration, QuintParser.RULE_qualId)?.text
+                        ?: findFirstChildOfRule(declaration, QuintParser.RULE_identOrHole)?.text
+                }
             }
             QuintParser.RULE_operDef -> {
                 // operDef has qualifier then normalCallName
@@ -87,6 +100,11 @@ object QuintPsiUtils {
             QuintParser.RULE_instanceMod -> {
                 val moduleName = findFirstChildOfRule(declaration, QuintParser.RULE_moduleName)
                 moduleName?.text
+            }
+            QuintParser.RULE_parameter, QuintParser.RULE_annotatedParameter -> {
+                // parameter → identOrHole → qualId
+                val identOrHole = findFirstChildOfRule(declaration, QuintParser.RULE_identOrHole)
+                identOrHole?.text
             }
             else -> null
         }
@@ -134,9 +152,9 @@ object QuintPsiUtils {
     }
 
     /**
-     * Find direct children of a given rule type.
+     * Find children of a given rule type (with recursive search up to maxDepth).
      */
-    private fun findChildrenOfRule(parent: PsiElement, ruleIndex: Int): List<PsiElement> {
+    fun findChildrenOfRule(parent: PsiElement, ruleIndex: Int): List<PsiElement> {
         val result = mutableListOf<PsiElement>()
         findChildrenOfRuleRecursive(parent, ruleIndex, result, maxDepth = 5)
         return result
@@ -164,7 +182,7 @@ object QuintPsiUtils {
     /**
      * Find the first direct child matching a given rule type.
      */
-    private fun findFirstChildOfRule(parent: PsiElement, ruleIndex: Int): PsiElement? {
+    fun findFirstChildOfRule(parent: PsiElement, ruleIndex: Int): PsiElement? {
         var child = parent.firstChild
         while (child != null) {
             val childType = child.node?.elementType
@@ -174,5 +192,60 @@ object QuintPsiUtils {
             child = child.nextSibling
         }
         return null
+    }
+
+    /**
+     * Walk parents to find the enclosing module node.
+     */
+    fun getContainingModule(element: PsiElement): PsiElement? {
+        var current = element.parent
+        while (current != null) {
+            val type = current.node?.elementType
+            if (type is RuleIElementType && type.ruleIndex == QuintParser.RULE_module) {
+                return current
+            }
+            current = current.parent
+        }
+        return null
+    }
+
+    /**
+     * Returns true if this qualId node is at a declaration site (not a usage).
+     */
+    fun isDeclarationIdentifier(qualId: PsiElement): Boolean {
+        val parent = qualId.parent ?: return false
+        val parentType = parent.node?.elementType as? RuleIElementType ?: return false
+
+        return when (parentType.ruleIndex) {
+            QuintParser.RULE_normalCallName -> {
+                // Declaration if inside operDef, usage if inside expr
+                val gp = parent.parent
+                val gpType = gp?.node?.elementType as? RuleIElementType
+                gpType?.ruleIndex == QuintParser.RULE_operDef
+            }
+            QuintParser.RULE_module -> true
+            QuintParser.RULE_typeDefHead -> true
+            QuintParser.RULE_typeDef -> {
+                // 'type' qualId (abstract type) — qualId is direct child of typeDef
+                true
+            }
+            QuintParser.RULE_declaration -> {
+                // const/var: qualId is direct child of declaration
+                val firstChild = parent.firstChild
+                firstChild?.text in listOf("const", "var")
+            }
+            QuintParser.RULE_identOrHole -> {
+                val gp = parent.parent
+                val gpType = gp?.node?.elementType as? RuleIElementType
+                when (gpType?.ruleIndex) {
+                    QuintParser.RULE_parameter, QuintParser.RULE_annotatedParameter -> true
+                    QuintParser.RULE_declaration -> gp.firstChild?.text == "assume"
+                    else -> false
+                }
+            }
+            // qualId inside name/moduleName/qualifiedName rules (import/export targets)
+            QuintParser.RULE_name, QuintParser.RULE_moduleName, QuintParser.RULE_qualifiedName -> true
+            else -> false
+        }
     }
 }

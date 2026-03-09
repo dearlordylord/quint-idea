@@ -1,10 +1,12 @@
 package com.dearlordylord.quint.idea.completion
 
 import com.dearlordylord.quint.idea.QuintLanguage
+import com.dearlordylord.quint.idea.psi.QuintPsiUtils
+import com.dearlordylord.quint.idea.references.QuintScopeResolver
 import com.intellij.codeInsight.completion.*
 import com.intellij.codeInsight.lookup.LookupElementBuilder
-import com.intellij.openapi.util.IconLoader
 import com.intellij.patterns.PlatformPatterns
+import com.intellij.psi.PsiNamedElement
 import com.intellij.util.ProcessingContext
 
 class QuintCompletionContributor : CompletionContributor() {
@@ -58,6 +60,16 @@ class QuintCompletionContributor : CompletionContributor() {
                         .withTypeText(info.category)
                         .withTailText("  ${info.signature}", true)
                 )
+            }
+
+            // Scope-aware declarations
+            val existingNames = BUILTIN_OPERATORS.keys + BUILTIN_VALUES.keys + KEYWORDS + TYPE_KEYWORDS
+            val declarations = QuintScopeResolver.findVisibleDeclarations(parameters.position)
+            for (decl in declarations) {
+                val name = (decl as? PsiNamedElement)?.name ?: continue
+                if (name in existingNames) continue
+                val qualifier = QuintPsiUtils.getDeclarationQualifier(decl) ?: ""
+                result.addElement(LookupElementBuilder.create(name).withTypeText(qualifier))
             }
         }
     }

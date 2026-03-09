@@ -16,6 +16,7 @@ Plugin ID: `com.dearlordylord.quint.idea`
 | T2: Parser + PSI + Structure | DONE | 4/4 | ANTLR4 parser, vendored adaptor, structure view, folding |
 | T3: Annotator + Settings + Completion | DONE | 21/21 | External annotator, settings UI, keyword+builtin completion |
 | T4: Merge + Integration Verify | DONE | 55/55 total | All branches merged, clean build, all tests pass |
+| T5: Go-to-Definition + Find Usages + Scope Completion | DONE | 8/8 | Single-file, value-level refs. Cmd+Click, Find Usages, scope-aware completion |
 
 ---
 
@@ -798,11 +799,15 @@ If conflicts arise (they shouldn't given the isolation contract):
 - Would activate only in commercial IDEs via `<depends optional="true">com.intellij.modules.lsp</depends>`
 
 ### Advanced Intelligence
-- Go-to-definition across files
-- Find usages
-- Rename refactoring
+- ~~Go-to-definition (single-file)~~ DONE in T5
+- ~~Find usages (single-file)~~ DONE in T5
+- ~~Scope-aware completion~~ DONE in T5
+- Dot-context completion: after `.`, suppress keywords, show only dot-callable names (builtins + user-defined operators)
+- Go-to-definition across files (stub indexes for imports)
+- Rename refactoring (QuintNamedElement.setName currently throws)
 - Type-aware completion (using `quint typecheck` JSON output for type info)
-- Stub indexes for cross-file resolution
+- Match case variant param bindings (simpleId inside matchSumVariant)
+- Destructuring patterns (`val (a, b) = ...`)
 
 ---
 
