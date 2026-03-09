@@ -7,6 +7,18 @@ Plugin ID: `com.dearlordylord.quint.idea`
 
 ---
 
+## Task Status
+
+| Task | Status | Tests | Notes |
+|------|--------|-------|-------|
+| T0: Scaffold | DONE | — | `./gradlew build` passes |
+| T1: Lexer + Highlighting + Editor | DONE | 30/30 | Full JFlex lexer, syntax highlighting, brace matching, commenter |
+| T2: Parser + PSI + Structure | DONE | 4/4 | ANTLR4 parser, vendored adaptor, structure view, folding |
+| T3: Annotator + Settings + Completion | DONE | 21/21 | External annotator, settings UI, keyword+builtin completion |
+| T4: Merge + Integration Verify | DONE | 55/55 total | All branches merged, clean build, all tests pass |
+
+---
+
 ## Execution Order
 
 ```
