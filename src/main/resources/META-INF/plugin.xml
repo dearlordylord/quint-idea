@@ -1,0 +1,65 @@
+<idea-plugin>
+    <id>com.dearlordylord.quint.idea</id>
+    <name>Quint</name>
+    <vendor>dearlordylord</vendor>
+    <description>Language support for Quint specifications</description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- File type -->
+        <fileType
+            name="Quint"
+            implementationClass="com.dearlordylord.quint.idea.QuintFileType"
+            fieldName="INSTANCE"
+            language="Quint"
+            extensions="qnt"/>
+
+        <!-- Parser -->
+        <lang.parserDefinition
+            language="Quint"
+            implementationClass="com.dearlordylord.quint.idea.parser.QuintParserDefinition"/>
+
+        <!-- Syntax highlighting -->
+        <lang.syntaxHighlighterFactory
+            language="Quint"
+            implementationClass="com.dearlordylord.quint.idea.highlighting.QuintSyntaxHighlighterFactory"/>
+        <colorSettingsPage
+            implementation="com.dearlordylord.quint.idea.highlighting.QuintColorSettingsPage"/>
+
+        <!-- Editor -->
+        <lang.braceMatcher
+            language="Quint"
+            implementationClass="com.dearlordylord.quint.idea.editor.QuintBraceMatcher"/>
+        <lang.commenter
+            language="Quint"
+            implementationClass="com.dearlordylord.quint.idea.editor.QuintCommenter"/>
+        <lang.foldingBuilder
+            language="Quint"
+            implementationClass="com.dearlordylord.quint.idea.editor.QuintFoldingBuilder"/>
+
+        <!-- Structure -->
+        <lang.psiStructureViewFactory
+            language="Quint"
+            implementationClass="com.dearlordylord.quint.idea.structure.QuintStructureViewFactory"/>
+
+        <!-- Completion -->
+        <completion.contributor
+            language="Quint"
+            implementationClass="com.dearlordylord.quint.idea.completion.QuintCompletionContributor"/>
+
+        <!-- External annotator (diagnostics) -->
+        <externalAnnotator
+            language="Quint"
+            implementationClass="com.dearlordylord.quint.idea.annotator.QuintExternalAnnotator"/>
+
+        <!-- Settings -->
+        <applicationConfigurable
+            parentId="tools"
+            instance="com.dearlordylord.quint.idea.settings.QuintSettingsConfigurable"
+            id="com.dearlordylord.quint.idea.settings.QuintSettingsConfigurable"
+            displayName="Quint"/>
+        <applicationService
+            serviceImplementation="com.dearlordylord.quint.idea.settings.QuintSettingsState"/>
+    </extensions>
+</idea-plugin>
