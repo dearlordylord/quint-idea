@@ -1,0 +1,20 @@
+Third-Party Notices
+===================
+
+This project includes modified and vendored third-party components:
+
+1. Quint Grammar (Quint.g4)
+   - Source: https://github.com/informalsystems/quint
+   - Commit: a60cc3b6ac006ce67c495619c9dd252ec62c9e27
+   - License: Apache License 2.0 (see vendor/LICENSE-quint-grammar.txt)
+   - Copyright: Informal Systems, 2021-2025
+   - Modifications: Adapted for Java target (removed TypeScript actions,
+     changed parameter syntax, changed -> skip to -> channel(HIDDEN),
+     changed comment rules to not require trailing newline)
+
+2. antlr4-intellij-adaptor
+   - Source: https://github.com/antlr/antlr4-intellij-adaptor (v0.2.0)
+   - License: BSD 2-Clause (see vendor/LICENSE-antlr4-intellij-adaptor.txt)
+   - Copyright: 2016, The ANTLR Project contributors
+   - Modifications: Fixed deprecations for IntelliJ 2025.1, stripped unused
+     modules (xpath/, SymtabUtils), simplified to essential bridge classes

@@ -8,10 +8,16 @@
  * @author: Igor Konnov, Shon Feder, Gabriela Moreira, Jure Kukovec, Thomas Pani
  *          Informal Systems, 2021-2025
  *
- * Modified for IntelliJ IDEA plugin (Java target):
+ * Original source (Apache-2.0 license):
+ *   https://github.com/informalsystems/quint/blob/a60cc3b6ac006ce67c495619c9dd252ec62c9e27/quint/src/generated/Quint.g4
+ *
+ * Modifications for IntelliJ IDEA plugin (Java target):
  *  - Removed TypeScript @header import
  *  - Replaced TypeScript embedded actions with Java equivalents
- *  - Changed parameter syntax from TS to Java
+ *  - Changed parameter syntax from TS to Java (e.g. simpleId[String context])
+ *  - Changed single-quoted string arguments to double-quoted
+ *  - Changed -> skip to -> channel(HIDDEN) for WS, LINE_COMMENT, COMMENT
+ *  - Changed LINE_COMMENT and DOCCOMMENT to not require trailing newline
  */
 grammar Quint;
 

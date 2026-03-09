@@ -126,6 +126,17 @@ Create the JFlex lexer directly, feed it text, collect token type/text pairs. No
 ### Completion tests can work without a real parser
 The `QuintCompletionTest` in T3 tested completion logic (keyword lists, builtin operators) as unit tests without IDE fixtures, avoiding the problem of the parser stub throwing errors.
 
+### ANTLR `-> skip` vs `-> channel(HIDDEN)` — critical for IntelliJ
+ANTLR's `-> skip` completely discards tokens — `Lexer.nextToken()` never emits them. IntelliJ's PsiBuilder needs ALL characters accounted for. If whitespace/comments are skipped, PsiBuilder's token text doesn't cover the full file, causing `LazyParseableElement` "Text mismatch in FILE" errors at runtime (during background highlighting).
+
+**Fix**: Use `-> channel(HIDDEN)` instead of `-> skip` for WS, LINE_COMMENT, COMMENT. Hidden-channel tokens are returned by `Lexer.nextToken()` (so IntelliJ sees them) but filtered by `CommonTokenStream` (so ANTLR's parser ignores them).
+
+### DOCCOMMENT must NOT be in PsiBuilder's comment auto-skip set
+`DOCCOMMENT` is used in parser rules (`module : DOCCOMMENT* 'module' ...`). If it's in `ParserDefinition.getCommentTokens()`, PsiBuilder auto-skips it. Then the parse tree walk calls `builder.advanceLexer()` for a DOCCOMMENT terminal, but PsiBuilder already skipped past it — causing desynchronization. Only put tokens on `channel(HIDDEN)` into the comment/whitespace TokenSets.
+
+### `LINE_COMMENT` and `DOCCOMMENT`: don't require trailing `\n`
+Original rules `'//' .*? '\n'` and `'///' .*? '\n'` fail to match a comment on the last line of a file (no trailing newline). Use `'//' ~[\n]*` and `'///' ~[\n]*` instead — the trailing newline becomes a WS token.
+
 ---
 
 ## Deferred / Future Work
