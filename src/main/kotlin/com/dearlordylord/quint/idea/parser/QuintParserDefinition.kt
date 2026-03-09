@@ -21,6 +21,7 @@ import org.antlr.intellij.adaptor.psi.ANTLRPsiNode
 
 class QuintParserDefinition : ParserDefinition {
     companion object {
+        private val KEYWORD_LED_DECLARATIONS = setOf("const", "var", "assume")
         val FILE = IFileElementType(QuintLanguage.INSTANCE)
 
         init {
@@ -80,7 +81,7 @@ class QuintParserDefinition : ParserDefinition {
                 QuintParser.RULE_qualId -> return QuintQualIdNode(node)
                 QuintParser.RULE_declaration -> {
                     val firstChildText = node.firstChildNode?.text
-                    if (firstChildText in listOf("const", "var", "assume")) {
+                    if (firstChildText in KEYWORD_LED_DECLARATIONS) {
                         return QuintNamedElement(node)
                     }
                 }

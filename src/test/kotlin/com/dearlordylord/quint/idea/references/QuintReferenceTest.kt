@@ -77,4 +77,33 @@ class QuintReferenceTest : BasePlatformTestCase() {
         val ref = referenceAtCaret()
         assertNull("Declaration site should not have a reference", ref)
     }
+
+    fun testShadowingResolvesToInnerScope() {
+        myFixture.configureByText("test.qnt", "module refs {\n  val x = 1\n  val f = Set(1).map(x => <caret>x)\n}")
+        val resolved = resolveAtCaret()
+        assertNotNull("Expected shadowed reference to resolve", resolved)
+        assertTrue("Expected QuintNamedElement", resolved is QuintNamedElement)
+        assertEquals("x", (resolved as QuintNamedElement).name)
+        // Should resolve to the lambda parameter, not the module-level val
+        val resolvedType = resolved.node?.elementType as? org.antlr.intellij.adaptor.lexer.RuleIElementType
+        assertNotNull(resolvedType)
+        assertEquals("Should resolve to parameter, not operDef",
+            com.dearlordylord.quint.idea.parser.QuintParser.RULE_parameter, resolvedType!!.ruleIndex)
+    }
+
+    fun testConstResolves() {
+        myFixture.configureByText("test.qnt", "module refs {\n  const N: int\n  val x = <caret>N\n}")
+        val resolved = resolveAtCaret()
+        assertNotNull("Expected const reference to resolve", resolved)
+        assertTrue("Expected QuintNamedElement", resolved is QuintNamedElement)
+        assertEquals("N", (resolved as QuintNamedElement).name)
+    }
+
+    fun testTypeDefResolves() {
+        myFixture.configureByText("test.qnt", "module refs {\n  type MyT = int\n  pure def f(x: <caret>MyT): int = x\n}")
+        val resolved = resolveAtCaret()
+        assertNotNull("Expected type reference to resolve", resolved)
+        assertTrue("Expected QuintNamedElement", resolved is QuintNamedElement)
+        assertEquals("MyT", (resolved as QuintNamedElement).name)
+    }
 }

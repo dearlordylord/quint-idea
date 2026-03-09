@@ -147,6 +147,7 @@ object QuintPsiUtils {
             QuintParser.RULE_typeDef -> "type"
             QuintParser.RULE_importMod -> "import"
             QuintParser.RULE_exportMod -> "export"
+            QuintParser.RULE_parameter, QuintParser.RULE_annotatedParameter -> "parameter"
             else -> null
         }
     }
@@ -232,7 +233,7 @@ object QuintPsiUtils {
             QuintParser.RULE_declaration -> {
                 // const/var: qualId is direct child of declaration
                 val firstChild = parent.firstChild
-                firstChild?.text in listOf("const", "var")
+                firstChild?.text == "const" || firstChild?.text == "var"
             }
             QuintParser.RULE_identOrHole -> {
                 val gp = parent.parent
@@ -243,8 +244,9 @@ object QuintPsiUtils {
                     else -> false
                 }
             }
-            // qualId inside name/moduleName/qualifiedName rules (import/export targets)
-            QuintParser.RULE_name, QuintParser.RULE_moduleName, QuintParser.RULE_qualifiedName -> true
+            // qualId inside name/moduleName/qualifiedName/identOrStar rules (import/export targets)
+            QuintParser.RULE_name, QuintParser.RULE_moduleName, QuintParser.RULE_qualifiedName,
+            QuintParser.RULE_identOrStar -> true
             else -> false
         }
     }

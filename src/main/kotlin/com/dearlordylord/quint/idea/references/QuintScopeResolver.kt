@@ -49,10 +49,8 @@ object QuintScopeResolver {
         while (child != null) {
             if (child is QuintNamedElement) {
                 val childType = child.node?.elementType as? RuleIElementType
-                if (childType != null && childType.ruleIndex in listOf(
-                        QuintParser.RULE_parameter,
-                        QuintParser.RULE_annotatedParameter
-                    )
+                if (childType?.ruleIndex == QuintParser.RULE_parameter ||
+                    childType?.ruleIndex == QuintParser.RULE_annotatedParameter
                 ) {
                     result.add(child)
                 }
