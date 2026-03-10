@@ -169,3 +169,6 @@ The `buildSearchableOptions` task validates plugin loading, but actual editor be
 
 ### `verifyPlugin` needs explicit IDE configuration
 Running `./gradlew verifyPlugin` fails with "No IDEs Found" unless you configure IDE versions in `intellijPlatform { pluginVerification { ... } }`. Not critical for development, needed for CI/publishing.
+
+### ANTLR `getTokenNames()` deprecation warnings
+JetBrains Marketplace verification flags `Lexer.getTokenNames()` (in `QuintLexer`) and `Recognizer.getTokenNames()` (in `QuintParser`) as deprecated. These are in ANTLR-generated code — can't fix without patching the ANTLR 4.13.2 runtime or code generator. Upstream issue: https://github.com/antlr/antlr4/issues/1947. Low priority; the method still works, just deprecated in favor of `getVocabulary()`.
