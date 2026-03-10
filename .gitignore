@@ -1,6 +1,9 @@
 # Gradle
 .gradle/
 build/
+
+# IntelliJ Platform
+.intellijPlatform/
 !gradle/wrapper/gradle-wrapper.jar
 
 # IDE
@@ -9,6 +12,9 @@ build/
 *.iws
 *.ipr
 out/
+
+# Secrets
+.env
 
 # OS
 .DS_Store

@@ -2,17 +2,16 @@
 
 Language support for [Quint](https://github.com/informalsystems/quint), a specification language for distributed systems and protocols.
 
-Works on **IntelliJ IDEA Community Edition** 2025.1+. No Node.js/npm dependency.
+Works on **IntelliJ IDEA Community Edition** 2025.1+
 
 ## Features
 
 ### Syntax Highlighting
 - Full lexer covering all Quint tokens: keywords, operators, identifiers, strings, integers, booleans, comments (line `//`, block `/* */`, doc `///`)
 - Distinct colors for keywords, types (`Set`, `List`), uppercase identifiers, operators, literals
-- Configurable via Settings > Editor > Color Scheme > Quint
 
 ### Editor
-- Brace matching for `{}`, `[]`, `()`
+- Brace matching 
 - Line comment toggling (`Ctrl+/` / `Cmd+/`)
 - Code folding for modules and block expressions
 
@@ -22,7 +21,7 @@ Works on **IntelliJ IDEA Community Edition** 2025.1+. No Node.js/npm dependency.
 
 ### Navigation
 - **Go-to-definition** (`Cmd+Click` / `Ctrl+Click`) — resolves vals, defs, actions, consts, vars, types, parameters, lambda parameters, let-in bindings
-- **Find Usages** (`Alt+F7`) — lists all references to a declaration
+- **Find Usages** - lists all references to a declaration
 - Forward references within a module
 - Qualified references (`ModuleName::member`)
 - Scope-aware: inner bindings shadow outer ones

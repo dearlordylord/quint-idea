@@ -2,7 +2,18 @@
     <id>com.dearlordylord.quint.idea</id>
     <name>Quint</name>
     <vendor>dearlordylord</vendor>
-    <description>Language support for Quint specifications</description>
+    <description><![CDATA[
+Language support for the <a href="https://github.com/informalsystems/quint">Quint</a> specification language.
+
+<ul>
+  <li>Syntax highlighting</li>
+  <li>Code completion (keywords, scope-aware identifiers, qualified references)</li>
+  <li>Go-to-definition and Find Usages</li>
+  <li>Structure view</li>
+  <li>Code folding, brace matching, commenting</li>
+  <li>Diagnostics via <code>quint typecheck</code> external annotator</li>
+</ul>
+]]></description>
 
     <depends>com.intellij.modules.platform</depends>
 
