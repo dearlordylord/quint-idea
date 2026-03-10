@@ -16,10 +16,10 @@ class QuintSettingsConfigurable : Configurable {
     override fun createComponent(): JComponent {
         quintPathField = TextFieldWithBrowseButton().apply {
             addBrowseFolderListener(
-                "Select Quint Binary",
-                "Path to the quint executable",
                 null,
-                FileChooserDescriptorFactory.createSingleFileDescriptor()
+                FileChooserDescriptorFactory.singleFile()
+                    .withTitle("Select Quint Binary")
+                    .withDescription("Path to the quint executable")
             )
         }
 
