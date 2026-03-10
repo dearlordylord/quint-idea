@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.3.0]
+### Added
+- Rename refactoring (Shift+F6): rename declarations (val, def, const, type, parameter) and all usages are updated automatically
+- Cross-module rename: renaming a `const` also updates instance parameter bindings (`import M(PARAM = expr).*`)
+
 ## [0.2.0]
 ### Added
 - Dot-context completion: after `expr.`, only dot-callable items are shown (builtin operators, user-defined defs, `and`/`or`/`iff`/`implies`). Keywords, type keywords, and builtin values are suppressed in dot context.

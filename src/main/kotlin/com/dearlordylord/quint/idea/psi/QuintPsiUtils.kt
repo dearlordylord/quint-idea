@@ -1,8 +1,11 @@
 package com.dearlordylord.quint.idea.psi
 
+import com.dearlordylord.quint.idea.QuintFileType
 import com.dearlordylord.quint.idea.QuintLanguage
 import com.dearlordylord.quint.idea.parser.QuintParser
+import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFileFactory
 import com.intellij.psi.util.PsiTreeUtil
 import org.antlr.intellij.adaptor.lexer.PSIElementTypeFactory
 import org.antlr.intellij.adaptor.lexer.RuleIElementType
@@ -211,6 +214,17 @@ object QuintPsiUtils {
     }
 
     /**
+     * Create a fresh qualId PSI node from a name string by parsing a dummy file.
+     */
+    fun createQualIdFromText(project: Project, name: String): PsiElement? {
+        val dummyFile = PsiFileFactory.getInstance(project)
+            .createFileFromText("dummy.qnt", QuintFileType.INSTANCE, "module _R { val $name = 0 }")
+        val module = findModules(dummyFile).firstOrNull() ?: return null
+        val decl = findDeclarations(module).firstOrNull() ?: return null
+        return findChildrenOfRule(decl, QuintParser.RULE_qualId).firstOrNull()
+    }
+
+    /**
      * Returns true if this qualId node is at a declaration site (not a usage).
      */
     fun isDeclarationIdentifier(qualId: PsiElement): Boolean {
@@ -245,7 +259,14 @@ object QuintPsiUtils {
                 }
             }
             // qualId inside name/moduleName/qualifiedName/identOrStar rules (import/export targets)
-            QuintParser.RULE_name, QuintParser.RULE_moduleName, QuintParser.RULE_qualifiedName,
+            QuintParser.RULE_name -> {
+                // name inside instanceMod parameter bindings (e.g. VALS = Set(...)) are
+                // references to const declarations in the target module, not declarations
+                val gp = parent.parent
+                val gpType = gp?.node?.elementType as? RuleIElementType
+                gpType?.ruleIndex != QuintParser.RULE_instanceMod
+            }
+            QuintParser.RULE_moduleName, QuintParser.RULE_qualifiedName,
             QuintParser.RULE_identOrStar -> true
             else -> false
         }

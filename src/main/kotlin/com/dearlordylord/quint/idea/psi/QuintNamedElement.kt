@@ -46,6 +46,10 @@ class QuintNamedElement(node: ASTNode) : ANTLRPsiNode(node), PsiNameIdentifierOw
     }
 
     override fun setName(name: String): PsiElement {
-        throw IncorrectOperationException("Rename not yet supported")
+        val nameId = nameIdentifier ?: throw IncorrectOperationException("No name identifier")
+        val newId = QuintPsiUtils.createQualIdFromText(project, name)
+            ?: throw IncorrectOperationException("Cannot create identifier")
+        nameId.node.treeParent.replaceChild(nameId.node, newId.node)
+        return this
     }
 }

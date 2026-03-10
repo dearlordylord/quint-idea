@@ -139,6 +139,29 @@ Original rules `'//' .*? '\n'` and `'///' .*? '\n'` fail to match a comment on t
 
 ---
 
+## Sandbox IDE Troubleshooting
+
+### Finding the sandbox log
+The sandbox IDE logs to a path under the project's `.intellijPlatform/` directory:
+```
+.intellijPlatform/sandbox/IC-2025.1/log/idea.log
+```
+Config, system, and plugins directories are siblings under the same `IC-2025.1/` root.
+
+If you can't remember the path, find it from a running sandbox via:
+```bash
+lsof -c java 2>/dev/null | grep idea.log
+```
+
+### `platform-lang-impl` classes are NOT accessible to plugins
+Classes in `platform-lang-impl` compile fine (they're on the test classpath) but cause `ClassNotFoundException` at runtime, crashing plugin loading silently. Known impl-only classes:
+- `com.intellij.codeInsight.TargetElementEvaluatorEx2`
+- `com.intellij.refactoring.rename.PsiElementRenameHandler`
+
+Only use classes from `platform-lang-api` / `platform-refactoring` in plugin production code.
+
+---
+
 ## Deferred / Future Work
 
 ### `./gradlew runIde` not tested programmatically

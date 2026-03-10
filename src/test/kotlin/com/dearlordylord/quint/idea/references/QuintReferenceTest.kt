@@ -72,10 +72,13 @@ class QuintReferenceTest : BasePlatformTestCase() {
         assertEquals("temp", (resolved as QuintNamedElement).name)
     }
 
-    fun testDeclarationSiteHasNoReference() {
+    fun testDeclarationSiteHasSelfReference() {
         myFixture.configureByText("test.qnt", "module refs {\n  val <caret>x = 1\n}")
         val ref = referenceAtCaret()
-        assertNull("Declaration site should not have a reference", ref)
+        assertNotNull("Declaration site should have a self-reference for rename", ref)
+        val resolved = ref!!.resolve()
+        assertTrue("Self-reference should resolve to QuintNamedElement", resolved is QuintNamedElement)
+        assertFalse("Self-reference isReferenceTo should return false", ref.isReferenceTo(resolved!!))
     }
 
     fun testShadowingResolvesToInnerScope() {
@@ -105,5 +108,13 @@ class QuintReferenceTest : BasePlatformTestCase() {
         assertNotNull("Expected type reference to resolve", resolved)
         assertTrue("Expected QuintNamedElement", resolved is QuintNamedElement)
         assertEquals("MyT", (resolved as QuintNamedElement).name)
+    }
+
+    fun testInstanceParamResolves() {
+        myFixture.configureByText("test.qnt", "module A {\n  const N: int\n}\nmodule B {\n  import A(<caret>N = 3).*\n}")
+        val resolved = resolveAtCaret()
+        assertNotNull("Expected instance param to resolve to const", resolved)
+        assertTrue("Expected QuintNamedElement", resolved is QuintNamedElement)
+        assertEquals("N", (resolved as QuintNamedElement).name)
     }
 }
