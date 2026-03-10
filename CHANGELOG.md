@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.3.1]
+### Fixed
+- Deprecated API warnings flagged by JetBrains Marketplace plugin verification
+
 ## [0.3.0]
 ### Added
 - Rename refactoring (Shift+F6): rename declarations (val, def, const, type, parameter) and all usages are updated automatically
