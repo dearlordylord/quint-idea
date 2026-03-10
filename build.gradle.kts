@@ -82,6 +82,14 @@ intellijPlatform {
         id = "com.dearlordylord.quint.idea"
         name = providers.gradleProperty("pluginName")
         version = providers.gradleProperty("pluginVersion")
+        changeNotes = provider {
+            file("CHANGELOG.md").readText()
+                .substringAfter("## [${project.version}]")
+                .substringBefore("\n## [")
+                .lines()
+                .filter { it.isNotBlank() }
+                .joinToString("<br>\n") { it.removePrefix("### ").removePrefix("- ") }
+        }
     }
     publishing {
         token = providers.environmentVariable("PUBLISH_TOKEN")
