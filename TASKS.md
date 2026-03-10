@@ -17,6 +17,7 @@ Plugin ID: `com.dearlordylord.quint.idea`
 | T3: Annotator + Settings + Completion | DONE | 21/21 | External annotator, settings UI, keyword+builtin completion |
 | T4: Merge + Integration Verify | DONE | 55/55 total | All branches merged, clean build, all tests pass |
 | T5: Go-to-Definition + Find Usages + Scope Completion | DONE | 8/8 | Single-file, value-level refs. Cmd+Click, Find Usages, scope-aware completion |
+| T6: Dot-Context Completion | DONE | 9/9 | After `.`, suppress keywords, show only dot-callable builtins + user-defined defs |
 
 ---
 
@@ -786,6 +787,66 @@ If conflicts arise (they shouldn't given the isolation contract):
 
 ---
 
+## T6: Dot-Context Completion
+
+### Goal
+After `expr.`, suppress keywords/type keywords/builtin values and show only dot-callable items: builtin operators, dot-callable keywords (`and`, `or`, `iff`, `implies`), and user-defined operators with parameters.
+
+### Files to Modify
+- `src/main/kotlin/.../completion/QuintCompletionContributor.kt`
+
+### Files to Create
+- `src/test/kotlin/.../completion/QuintDotCompletionTest.kt` (extends `BasePlatformTestCase`)
+
+### Detection
+Walk up from `parameters.position` checking ancestor `elementType` for `RULE_nameAfterDot`. Grammar: `expr '.' nameAfterDot (LPAREN argList? RPAREN)?`. IntelliJ inserts dummy identifier at caret → parses as `dotCall` with `nameAfterDot` containing a `qualId`.
+
+### Completion Items by Context
+
+| Item Category | Non-dot context | Dot context |
+|---------------|:-:|:-:|
+| Keywords (module, val, if, ...) | YES | NO |
+| Type keywords (int, str, Set, ...) | YES | NO |
+| Builtin values (Nat, Int, Bool) | YES | NO |
+| Builtin operators (filter, map, ...) | YES | YES |
+| Dot-callable keywords (and, or, iff, implies) | via KEYWORDS | YES (as keyword) |
+| User-defined def/action/run/... | YES | YES |
+| User-defined val/pure val | YES | NO |
+| const/var/assume declarations | YES | NO |
+| Types, modules, parameters | YES | NO |
+
+### Implementation
+
+1. Add `DOT_CALLABLE_KEYWORDS = listOf("and", "or", "iff", "implies")`
+2. Add `isDotContext(position: PsiElement): Boolean` — walk ancestors for `RULE_nameAfterDot`
+3. Add `isDotCallableDeclaration(decl: PsiElement): Boolean` — qualifier in {def, pure def, action, run, temporal, nondet}
+4. Branch in `addCompletions`: if dot → DOT_CALLABLE_KEYWORDS + BUILTIN_OPERATORS + filtered scope decls; else → current behavior
+
+### Tests (QuintDotCompletionTest)
+
+1. `testDotContextShowsBuiltins` — `Set(1,2).<caret>` → filter, map, size present
+2. `testDotContextSuppressesKeywords` — `Set(1,2).<caret>` → module, val, if absent
+3. `testDotContextSuppressesTypeKeywords` — `Set(1,2).<caret>` → int, str absent
+4. `testDotContextSuppressesBuiltinValues` — `Set(1,2).<caret>` → Nat, Int, Bool absent
+5. `testDotContextShowsAndOr` — `true.<caret>` → and, or present
+6. `testDotContextShowsUserDefs` — user `def foo(x) = x` + `1.<caret>` → foo present
+7. `testDotContextHidesUserVals` — user `val bar = 1` + `1.<caret>` → bar absent
+8. `testNonDotShowsKeywords` — `module M { <caret> }` → val, def present
+9. `testNonDotShowsBuiltinValues` — `module M { val x = <caret> }` → Nat present
+
+### Acceptance Criteria
+- `./gradlew test` passes all existing + new tests
+- After `.`, only dot-callable names appear
+- Without `.`, behavior unchanged
+- `and`/`or`/`iff`/`implies` appear in both contexts
+
+### Scope Exclusions (future tasks)
+- No record field completion (requires type info)
+- No adjusted signatures in dot context (e.g. hiding first param)
+- No type-aware filtering (e.g. showing only Set ops for Set receivers)
+
+---
+
 ## Deferred to Future Sessions
 
 ### Run Configurations (PRD Phase 5)
@@ -802,7 +863,7 @@ If conflicts arise (they shouldn't given the isolation contract):
 - ~~Go-to-definition (single-file)~~ DONE in T5
 - ~~Find usages (single-file)~~ DONE in T5
 - ~~Scope-aware completion~~ DONE in T5
-- Dot-context completion: after `.`, suppress keywords, show only dot-callable names (builtins + user-defined operators)
+- ~~Dot-context completion~~ → T6
 - Go-to-definition across files (stub indexes for imports)
 - Rename refactoring (QuintNamedElement.setName currently throws)
 - Type-aware completion (using `quint typecheck` JSON output for type info)

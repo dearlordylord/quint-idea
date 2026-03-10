@@ -1,13 +1,16 @@
 package com.dearlordylord.quint.idea.completion
 
 import com.dearlordylord.quint.idea.QuintLanguage
+import com.dearlordylord.quint.idea.parser.QuintParser
 import com.dearlordylord.quint.idea.psi.QuintPsiUtils
 import com.dearlordylord.quint.idea.references.QuintScopeResolver
 import com.intellij.codeInsight.completion.*
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.patterns.PlatformPatterns
+import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiNamedElement
 import com.intellij.util.ProcessingContext
+import org.antlr.intellij.adaptor.lexer.RuleIElementType
 
 class QuintCompletionContributor : CompletionContributor() {
 
@@ -25,38 +28,51 @@ class QuintCompletionContributor : CompletionContributor() {
             context: ProcessingContext,
             result: CompletionResultSet
         ) {
-            // Keywords
-            for (keyword in KEYWORDS) {
-                result.addElement(
-                    LookupElementBuilder.create(keyword)
-                        .bold()
-                        .withTypeText("keyword")
-                )
+            val dotContext = isDotContext(parameters.position)
+
+            if (!dotContext) {
+                // Keywords
+                for (keyword in KEYWORDS) {
+                    result.addElement(
+                        LookupElementBuilder.create(keyword)
+                            .bold()
+                            .withTypeText("keyword")
+                    )
+                }
+
+                // Type keywords
+                for (typeKw in TYPE_KEYWORDS) {
+                    result.addElement(
+                        LookupElementBuilder.create(typeKw)
+                            .bold()
+                            .withTypeText("type")
+                    )
+                }
+
+                // Builtin values
+                for ((name, info) in BUILTIN_VALUES) {
+                    result.addElement(
+                        LookupElementBuilder.create(name)
+                            .bold()
+                            .withTypeText(info.category)
+                            .withTailText("  ${info.signature}", true)
+                    )
+                }
+            } else {
+                // Dot-callable keywords (and, or, iff, implies)
+                for (keyword in DOT_CALLABLE_KEYWORDS) {
+                    result.addElement(
+                        LookupElementBuilder.create(keyword)
+                            .bold()
+                            .withTypeText("keyword")
+                    )
+                }
             }
 
-            // Type keywords
-            for (typeKw in TYPE_KEYWORDS) {
-                result.addElement(
-                    LookupElementBuilder.create(typeKw)
-                        .bold()
-                        .withTypeText("type")
-                )
-            }
-
-            // Builtin operators
+            // Builtin operators — shown in both contexts
             for ((name, info) in BUILTIN_OPERATORS) {
                 result.addElement(
                     LookupElementBuilder.create(name)
-                        .withTypeText(info.category)
-                        .withTailText("  ${info.signature}", true)
-                )
-            }
-
-            // Builtin values
-            for ((name, info) in BUILTIN_VALUES) {
-                result.addElement(
-                    LookupElementBuilder.create(name)
-                        .bold()
                         .withTypeText(info.category)
                         .withTailText("  ${info.signature}", true)
                 )
@@ -69,12 +85,33 @@ class QuintCompletionContributor : CompletionContributor() {
                 val name = (decl as? PsiNamedElement)?.name ?: continue
                 if (name in existingNames) continue
                 val qualifier = QuintPsiUtils.getDeclarationQualifier(decl) ?: ""
+                if (dotContext && !isDotCallableQualifier(qualifier)) continue
                 result.addElement(LookupElementBuilder.create(name).withTypeText(qualifier))
             }
         }
     }
 
     companion object {
+        private val DOT_CALLABLE_QUALIFIERS = setOf("def", "pure def", "action", "run", "temporal", "nondet")
+
+        fun isDotContext(position: PsiElement): Boolean {
+            var current = position.parent
+            var depth = 0
+            while (current != null && depth < 6) {
+                val type = current.node?.elementType as? RuleIElementType
+                if (type != null && type.ruleIndex == QuintParser.RULE_nameAfterDot) {
+                    return true
+                }
+                current = current.parent
+                depth++
+            }
+            return false
+        }
+
+        fun isDotCallableQualifier(qualifier: String): Boolean = qualifier in DOT_CALLABLE_QUALIFIERS
+
+        val DOT_CALLABLE_KEYWORDS = listOf("and", "or", "iff", "implies")
+
         val KEYWORDS = listOf(
             "module", "import", "export", "from", "as",
             "const", "var", "assume", "type",
