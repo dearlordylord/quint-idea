@@ -36,25 +36,51 @@ Works on **IntelliJ IDEA Community Edition** 2025.1+
 - Configure the `quint` binary path in Settings > Tools > Quint
 - Works silently when no binary is configured
 
+### Refactoring
+- **Rename** (`Shift+F6`) — renames declarations and all their usages, including qualified references
+
+### Code Formatting
+- **Reformat Code** (`Cmd+Alt+L` / `Ctrl+Alt+L`) — enforces Quint formatting conventions (spacing around operators, after colons, etc.)
+
 ## Planned
 
 - **Dot-context completion** — after `.`, show only applicable methods instead of all completions
 - **Run configurations** — run `quint run`, `quint test`, `quint verify` from the IDE with gutter icons
 - **Cross-file navigation** — go-to-definition and find usages across imports
-- **Rename refactoring**
 - **Type-aware completion** — use type information to rank and filter suggestions
 - **Match case bindings** — resolve variant parameters in match expressions
 - **Destructuring patterns** — resolve names in `val (a, b) = ...`
 
 ## Build
 
+### Prerequisites
+
+- **JDK 21** — required by Kotlin 2.1.0 (JDK 25 causes version-string parse failures; JDK <17 is unsupported by IntelliJ Platform)
+- **Gradle 9.4** — included via the wrapper (`./gradlew`), no separate install needed
+
+The build uses a [Java toolchain](https://docs.gradle.org/current/userguide/toolchains.html) targeting JDK 21. If Gradle can't find a local JDK 21, it will attempt to auto-download one. To use a specific local JDK, either:
+
+- Set `JAVA_HOME` to your JDK 21 installation, or
+- Configure Gradle's [toolchain detection](https://docs.gradle.org/current/userguide/toolchains.html#sec:auto_detection) to find it
+
+On macOS with Homebrew: `export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home`
+
+### Commands
+
 ```
 ./gradlew test          # run tests
 ./gradlew runIde        # launch IDE sandbox with plugin
-./gradlew build         # full build
+./gradlew build         # full build including buildSearchableOptions
 ```
 
-Requires JDK 17+.
+### Troubleshooting
+
+If you see Kotlin version-string parse errors, your Gradle daemon likely cached a wrong JDK:
+
+```
+./gradlew --stop
+JAVA_HOME=/path/to/jdk21 ./gradlew test --no-daemon
+```
 
 ## License
 

@@ -20,5 +20,8 @@ out/
 .DS_Store
 Thumbs.db
 
+# Kotlin
+.kotlin/
+
 # Generated
 src/main/gen/
