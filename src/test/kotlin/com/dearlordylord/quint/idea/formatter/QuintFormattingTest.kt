@@ -118,6 +118,17 @@ class QuintFormattingTest : BasePlatformTestCase() {
         assertTrue("block children should be more indented than val", aIndent > valIndent)
     }
 
+    fun testDefaultIndentIsTwoSpaces() {
+        val input = """
+            |module M {
+            |val x = 1
+            |}
+        """.trimMargin()
+        val result = reformat(input)
+        val lines = result.lines()
+        assertEquals("module body should use 2-space indent", "  val x = 1", lines[1])
+    }
+
     fun testEnterAfterOpenBrace() {
         myFixture.configureByText("test.qnt", "module M {<caret>}")
         myFixture.type('\n')

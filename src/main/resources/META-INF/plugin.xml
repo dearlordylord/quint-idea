@@ -43,6 +43,8 @@ Language support for the <a href="https://github.com/informalsystems/quint">Quin
         <lang.formatter
             language="Quint"
             implementationClass="com.dearlordylord.quint.idea.formatter.QuintFormattingModelBuilder"/>
+        <langCodeStyleSettingsProvider
+            implementation="com.dearlordylord.quint.idea.formatter.QuintCodeStyleSettingsProvider"/>
 
         <!-- Editor -->
         <lang.braceMatcher
