@@ -5,6 +5,7 @@
 ## [0.2.0]
 ### Added
 - Dot-context completion: after `expr.`, only dot-callable items are shown (builtin operators, user-defined defs, `and`/`or`/`iff`/`implies`). Keywords, type keywords, and builtin values are suppressed in dot context.
+- Auto-indent and Reformat Code support: Enter after `{` or `[` indents, Cmd+Alt+L reformats with correct indentation for modules, blocks, records, and lists. Spacing rules for operators, commas, and delimiters.
 
 ## [0.1.0]
 ### Added

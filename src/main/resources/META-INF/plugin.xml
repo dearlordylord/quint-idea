@@ -10,6 +10,7 @@ Language support for the <a href="https://github.com/informalsystems/quint">Quin
   <li>Code completion (keywords, scope-aware identifiers, qualified references)</li>
   <li>Go-to-definition and Find Usages</li>
   <li>Structure view</li>
+  <li>Auto-indent and Reformat Code</li>
   <li>Code folding, brace matching, commenting</li>
   <li>Diagnostics via <code>quint typecheck</code> external annotator</li>
 </ul>
@@ -37,6 +38,11 @@ Language support for the <a href="https://github.com/informalsystems/quint">Quin
             implementationClass="com.dearlordylord.quint.idea.highlighting.QuintSyntaxHighlighterFactory"/>
         <colorSettingsPage
             implementation="com.dearlordylord.quint.idea.highlighting.QuintColorSettingsPage"/>
+
+        <!-- Formatter -->
+        <lang.formatter
+            language="Quint"
+            implementationClass="com.dearlordylord.quint.idea.formatter.QuintFormattingModelBuilder"/>
 
         <!-- Editor -->
         <lang.braceMatcher
