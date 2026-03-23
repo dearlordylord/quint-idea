@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.4.1]
+### Added
+- Cross-file reference resolution: Cmd+Click navigates to definitions in imported files
+- Wildcard imports (`import A.* from "./file.qnt"`) bring names into unqualified scope
+- Specific imports (`import A.foo from "./file.qnt"`) bring single names into scope
+- Qualified cross-file refs (`A::foo`) and aliased refs (`B::foo` via `import A as B`)
+- Same-file wildcard/specific imports now resolve (`import A.*` within same file)
+- Cmd+Click on `"./path.qnt"` in `from` clause navigates to the file
+- Cross-file completion: imported names appear in autocomplete suggestions
+
 ## [0.3.1]
 ### Fixed
 - Deprecated API warnings flagged by JetBrains Marketplace plugin verification
