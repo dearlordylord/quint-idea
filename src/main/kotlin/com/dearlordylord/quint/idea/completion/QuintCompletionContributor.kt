@@ -79,8 +79,11 @@ class QuintCompletionContributor : CompletionContributor() {
             }
 
             // Scope-aware declarations
+            // Use originalPosition to preserve VFS context for cross-file import resolution.
+            // parameters.position is in a copy file (with dummy identifier) that lacks VFS parent.
             val existingNames = BUILTIN_OPERATORS.keys + BUILTIN_VALUES.keys + KEYWORDS + TYPE_KEYWORDS
-            val declarations = QuintScopeResolver.findVisibleDeclarations(parameters.position)
+            val scopePosition = parameters.originalPosition ?: parameters.position
+            val declarations = QuintScopeResolver.findVisibleDeclarations(scopePosition)
             for (decl in declarations) {
                 val name = (decl as? PsiNamedElement)?.name ?: continue
                 if (name in existingNames) continue
