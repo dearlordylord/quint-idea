@@ -2,6 +2,7 @@ package com.dearlordylord.quint.idea.parser
 
 import com.dearlordylord.quint.idea.QuintLanguage
 import com.dearlordylord.quint.idea.psi.QuintFile
+import com.dearlordylord.quint.idea.psi.QuintFromSourceNode
 import com.dearlordylord.quint.idea.psi.QuintNamedElement
 import com.dearlordylord.quint.idea.psi.QuintQualIdNode
 import com.intellij.lang.ASTNode
@@ -79,6 +80,7 @@ class QuintParserDefinition : ParserDefinition {
                 QuintParser.RULE_parameter,
                 QuintParser.RULE_annotatedParameter -> return QuintNamedElement(node)
                 QuintParser.RULE_qualId -> return QuintQualIdNode(node)
+                QuintParser.RULE_fromSource -> return QuintFromSourceNode(node)
                 QuintParser.RULE_declaration -> {
                     val firstChildText = node.firstChildNode?.text
                     if (firstChildText in KEYWORD_LED_DECLARATIONS) {
