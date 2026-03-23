@@ -67,11 +67,34 @@ class QuintReference(element: PsiElement, textRange: TextRange) :
 
     private fun resolveMemberInModule(moduleName: String, memberName: String): PsiElement? {
         val file = element.containingFile ?: return null
+
+        // 1. Same-file lookup (existing behavior)
         val modules = QuintPsiUtils.findModules(file)
-        val targetModule = modules.firstOrNull {
+        val sameFileModule = modules.firstOrNull {
             QuintPsiUtils.getDeclarationName(it) == moduleName
-        } ?: return null
-        val declarations = QuintScopeResolver.findModuleLevelDeclarations(targetModule)
-        return declarations.firstOrNull { it.name == memberName }
+        }
+        if (sameFileModule != null) {
+            val decl = QuintScopeResolver.findModuleLevelDeclarations(sameFileModule)
+                .firstOrNull { it.name == memberName }
+            if (decl != null) return decl
+        }
+
+        // 2. Cross-file: check imports in containing module
+        val containingModule = QuintPsiUtils.getContainingModule(element) ?: return null
+        val imports = QuintImportResolver.findImportsInModule(containingModule)
+        for (imp in imports) {
+            val matches = when (imp.kind) {
+                ImportKind.QUALIFIED -> imp.moduleName == moduleName
+                ImportKind.ALIASED -> imp.alias == moduleName
+                else -> false
+            }
+            if (!matches) continue
+            val targetModule = QuintImportResolver.findModule(imp.moduleName, imp.fromSource, file)
+                ?: continue
+            val decl = QuintScopeResolver.findModuleLevelDeclarations(targetModule)
+                .firstOrNull { it.name == memberName }
+            if (decl != null) return decl
+        }
+        return null
     }
 }
