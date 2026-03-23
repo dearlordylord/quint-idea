@@ -28,7 +28,7 @@ object QuintScopeResolver {
                         collectLetInBinding(current, position, result)
                     }
                     QuintParser.RULE_module -> {
-                        collectModuleDeclarations(current, result)
+                        collectModuleDeclarations(current, result, mutableSetOf())
                     }
                 }
             }
@@ -40,7 +40,7 @@ object QuintScopeResolver {
 
     fun findModuleLevelDeclarations(module: PsiElement): List<PsiNamedElement> {
         val result = mutableListOf<PsiNamedElement>()
-        collectModuleDeclarations(module, result)
+        collectModuleDeclarations(module, result, mutableSetOf())
         return result
     }
 
@@ -86,7 +86,12 @@ object QuintScopeResolver {
         }
     }
 
-    private fun collectModuleDeclarations(module: PsiElement, result: MutableList<PsiNamedElement>) {
+    private fun collectModuleDeclarations(
+        module: PsiElement,
+        result: MutableList<PsiNamedElement>,
+        visiting: MutableSet<PsiElement>
+    ) {
+        if (!visiting.add(module)) return // cycle guard
         var child = module.firstChild
         while (child != null) {
             val childType = child.node?.elementType as? RuleIElementType
@@ -96,14 +101,17 @@ object QuintScopeResolver {
                     val declType = declChild.node?.elementType as? RuleIElementType
                     if (declType != null && declType.ruleIndex == QuintParser.RULE_declaration) {
                         if (declChild is QuintNamedElement) {
-                            // const/var/assume declaration node is directly a QuintNamedElement
                             result.add(declChild)
                         } else {
-                            // operDef, typeDef children are QuintNamedElement
                             var inner = declChild.firstChild
                             while (inner != null) {
                                 if (inner is QuintNamedElement) {
                                     result.add(inner)
+                                } else {
+                                    val innerType = inner.node?.elementType as? RuleIElementType
+                                    if (innerType?.ruleIndex == QuintParser.RULE_importMod) {
+                                        collectImportedDeclarations(inner, module, result, visiting)
+                                    }
                                 }
                                 inner = inner.nextSibling
                             }
@@ -113,6 +121,31 @@ object QuintScopeResolver {
                 }
             }
             child = child.nextSibling
+        }
+    }
+
+    private fun collectImportedDeclarations(
+        importMod: PsiElement,
+        module: PsiElement,
+        result: MutableList<PsiNamedElement>,
+        visiting: MutableSet<PsiElement>
+    ) {
+        val importInfo = QuintImportResolver.extractImportInfo(importMod) ?: return
+        val containingFile = module.containingFile ?: return
+        val targetModule = QuintImportResolver.findModule(
+            importInfo.moduleName, importInfo.fromSource, containingFile
+        ) ?: return
+
+        if (importInfo.kind != ImportKind.WILDCARD && importInfo.kind != ImportKind.SPECIFIC) return
+
+        val imported = mutableListOf<PsiNamedElement>()
+        collectModuleDeclarations(targetModule, imported, visiting)
+
+        when (importInfo.kind) {
+            ImportKind.WILDCARD -> result.addAll(imported)
+            ImportKind.SPECIFIC -> imported.firstOrNull { it.name == importInfo.specificName }
+                ?.let { result.add(it) }
+            else -> {} // QUALIFIED/ALIASED handled by QuintReference
         }
     }
 }
