@@ -19,13 +19,6 @@ data class ImportInfo(
 
 object QuintImportResolver {
 
-    /**
-     * Extract import information from an importMod PSI node.
-     *
-     * Grammar:
-     *   importMod : 'import' name '.' identOrStar (FROM fromSource)?
-     *             | 'import' name (AS name)? (FROM fromSource)?
-     */
     fun extractImportInfo(importMod: PsiElement): ImportInfo? {
         val type = importMod.node?.elementType as? RuleIElementType ?: return null
         if (type.ruleIndex != QuintParser.RULE_importMod) return null
@@ -35,7 +28,6 @@ object QuintImportResolver {
         val fromSource = fromSourceNode?.text?.removeSurrounding("\"")
 
         if (identOrStar != null) {
-            // Alt 1: 'import' name '.' identOrStar (FROM fromSource)?
             val nameNode = QuintPsiUtils.findFirstChildOfRule(importMod, QuintParser.RULE_name)
                 ?: return null
             val moduleName = nameNode.text
@@ -45,7 +37,6 @@ object QuintImportResolver {
                 ImportInfo(moduleName, ImportKind.SPECIFIC, specificName = identOrStar.text, fromSource = fromSource)
             }
         } else {
-            // Alt 2: 'import' name (AS name)? (FROM fromSource)?
             val nameNodes = collectChildrenOfRule(importMod, QuintParser.RULE_name)
             if (nameNodes.isEmpty()) return null
             val moduleName = nameNodes[0].text
@@ -58,10 +49,6 @@ object QuintImportResolver {
         }
     }
 
-    /**
-     * Resolve a fromSource path relative to the context file.
-     * Uses VFS relative path resolution so it works with both real and in-memory file systems.
-     */
     fun resolveFromSource(fromSource: String, contextFile: PsiFile): PsiFile? {
         val contextVf = contextFile.virtualFile ?: return null
         val parentDir = contextVf.parent ?: return null
@@ -69,9 +56,6 @@ object QuintImportResolver {
         return PsiManager.getInstance(contextFile.project).findFile(vf)
     }
 
-    /**
-     * Find a module by name, optionally in another file via fromSource.
-     */
     fun findModule(moduleName: String, fromSource: String?, contextFile: PsiFile): PsiElement? {
         val targetFile = if (fromSource != null) {
             resolveFromSource(fromSource, contextFile) ?: return null
@@ -83,17 +67,12 @@ object QuintImportResolver {
         }
     }
 
-    /**
-     * Collect all imports in a module by walking documentedDeclaration -> declaration -> importMod.
-     */
     fun findImportsInModule(module: PsiElement): List<ImportInfo> {
         return QuintPsiUtils.findChildrenOfRule(module, QuintParser.RULE_importMod)
             .mapNotNull { extractImportInfo(it) }
     }
 
-    /**
-     * Collect direct children of a given rule type (non-recursive, preserves order).
-     */
+    // Non-recursive: collects only direct children, unlike QuintPsiUtils.findChildrenOfRule
     private fun collectChildrenOfRule(parent: PsiElement, ruleIndex: Int): List<PsiElement> {
         val result = mutableListOf<PsiElement>()
         var child = parent.firstChild

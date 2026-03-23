@@ -140,12 +140,10 @@ object QuintScopeResolver {
 
         val imported = mutableListOf<PsiNamedElement>()
         collectModuleDeclarations(targetModule, imported, visiting)
-
-        when (importInfo.kind) {
-            ImportKind.WILDCARD -> result.addAll(imported)
-            ImportKind.SPECIFIC -> imported.firstOrNull { it.name == importInfo.specificName }
-                ?.let { result.add(it) }
-            else -> {} // QUALIFIED/ALIASED handled by QuintReference
+        if (importInfo.kind == ImportKind.WILDCARD) {
+            result.addAll(imported)
+        } else {
+            imported.firstOrNull { it.name == importInfo.specificName }?.let { result.add(it) }
         }
     }
 }

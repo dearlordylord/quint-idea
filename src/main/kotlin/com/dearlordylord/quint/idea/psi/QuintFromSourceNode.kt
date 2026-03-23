@@ -6,10 +6,6 @@ import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiReference
 import org.antlr.intellij.adaptor.psi.ANTLRPsiNode
 
-/**
- * PSI node for the `fromSource` rule (`fromSource: STRING`).
- * Provides a file reference so Cmd+Click on the string navigates to the target file.
- */
 class QuintFromSourceNode(node: ASTNode) : ANTLRPsiNode(node) {
 
     override fun getReference(): PsiReference? {
