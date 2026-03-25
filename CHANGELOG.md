@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+
+## [0.5.0]
 ### Added
 - Type information on hover (Cmd+J / Quick Documentation): shows inferred types for declarations using `quint typecheck` output
 - Supports all Quint types: records, tuples, sum types, operators, type variables, Set/List
