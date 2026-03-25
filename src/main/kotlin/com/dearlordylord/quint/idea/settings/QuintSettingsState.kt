@@ -13,6 +13,19 @@ import com.intellij.util.xmlb.XmlSerializerUtil
 class QuintSettingsState : PersistentStateComponent<QuintSettingsState> {
     var quintBinaryPath: String = ""
 
+    @Transient
+    private var detectedPath: String? = null
+    @Transient
+    private var detectionAttempted: Boolean = false
+
+    fun resolveQuintPath(): String? {
+        if (quintBinaryPath.isNotBlank()) return quintBinaryPath
+        if (detectionAttempted) return detectedPath
+        detectionAttempted = true
+        detectedPath = QuintBinaryDetector.detect()
+        return detectedPath
+    }
+
     override fun getState(): QuintSettingsState = this
     override fun loadState(state: QuintSettingsState) {
         XmlSerializerUtil.copyBean(state, this)

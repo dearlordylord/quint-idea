@@ -14,8 +14,8 @@ class QuintCliToolRunner : QuintToolRunner {
     }
 
     override fun typecheck(filePath: String): QuintTypecheckResult {
-        val quintPath = QuintSettingsState.getInstance().quintBinaryPath
-        if (quintPath.isBlank()) {
+        val quintPath = QuintSettingsState.getInstance().resolveQuintPath()
+        if (quintPath == null) {
             return QuintTypecheckResult(stage = "typechecking", errors = emptyList(), warnings = emptyList())
         }
 

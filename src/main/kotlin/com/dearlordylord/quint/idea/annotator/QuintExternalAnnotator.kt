@@ -24,8 +24,8 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintTypec
     }
 
     override fun collectInformation(file: PsiFile): QuintAnnotatorInput? {
-        val binaryPath = QuintSettingsState.getInstance().quintBinaryPath
-        if (binaryPath.isBlank()) {
+        val binaryPath = QuintSettingsState.getInstance().resolveQuintPath()
+        if (binaryPath == null) {
             return null
         }
 
