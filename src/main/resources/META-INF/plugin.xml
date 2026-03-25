@@ -9,7 +9,7 @@ Language support for the <a href="https://github.com/informalsystems/quint">Quin
   <li>Syntax highlighting</li>
   <li>Code completion (keywords, scope-aware identifiers, qualified references)</li>
   <li>Go-to-definition and Find Usages</li>
-  <li>Type information on hover (Cmd+J / Quick Documentation)</li>
+  <li>Type information on hover (Quick Documentation)</li>
   <li>Structure view</li>
   <li>Auto-indent and Reformat Code</li>
   <li>Code folding, brace matching, commenting</li>

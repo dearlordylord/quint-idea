@@ -1,6 +1,5 @@
 package com.dearlordylord.quint.idea.settings
 
-import com.intellij.util.io.PathEnvironmentVariableUtil
 import java.io.File
 
 object QuintBinaryDetector {
@@ -8,11 +7,10 @@ object QuintBinaryDetector {
     private const val BINARY_NAME = "quint"
 
     fun detect(): String? {
-        PathEnvironmentVariableUtil.findInPath(BINARY_NAME)?.let {
-            return it.absolutePath
-        }
-
         val candidates = buildList {
+            System.getenv("PATH")?.split(File.pathSeparator)?.forEach { dir ->
+                add(File(dir, BINARY_NAME).absolutePath)
+            }
             add("/usr/local/bin/quint")
             add("/opt/homebrew/bin/quint")
             add("/usr/bin/quint")

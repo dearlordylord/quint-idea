@@ -14,21 +14,28 @@ class QuintSettingsState : PersistentStateComponent<QuintSettingsState> {
     var quintBinaryPath: String = ""
 
     @Transient
+    @Volatile
     private var detectedPath: String? = null
     @Transient
+    @Volatile
     private var detectionAttempted: Boolean = false
 
     fun resolveQuintPath(): String? {
         if (quintBinaryPath.isNotBlank()) return quintBinaryPath
         if (detectionAttempted) return detectedPath
-        detectionAttempted = true
-        detectedPath = QuintBinaryDetector.detect()
+        synchronized(this) {
+            if (detectionAttempted) return detectedPath
+            detectedPath = QuintBinaryDetector.detect()
+            detectionAttempted = true
+        }
         return detectedPath
     }
 
     override fun getState(): QuintSettingsState = this
     override fun loadState(state: QuintSettingsState) {
         XmlSerializerUtil.copyBean(state, this)
+        detectionAttempted = false
+        detectedPath = null
     }
 
     companion object {

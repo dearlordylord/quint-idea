@@ -43,7 +43,7 @@ class QuintSettingsConfigurable : Configurable {
 
     override fun reset() {
         val settings = QuintSettingsState.getInstance()
-        quintPathField?.text = settings.resolveQuintPath() ?: ""
+        quintPathField?.text = settings.quintBinaryPath
     }
 
     override fun disposeUIResources() {

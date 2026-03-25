@@ -2,9 +2,13 @@
 
 ## [Unreleased]
 
+## [0.5.1]
+### Added
+- Auto-detect quint binary from PATH and common install locations (no manual configuration needed)
+
 ## [0.5.0]
 ### Added
-- Type information on hover (Cmd+J / Quick Documentation): shows inferred types for declarations using `quint typecheck` output
+- Type information on hover (Quick Documentation): shows inferred types for declarations using `quint typecheck` output
 - Supports all Quint types: records, tuples, sum types, operators, type variables, Set/List
 
 ## [0.4.2]
