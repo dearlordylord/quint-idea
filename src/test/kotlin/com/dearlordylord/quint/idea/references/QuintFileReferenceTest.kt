@@ -51,6 +51,18 @@ class QuintFileReferenceTest : BasePlatformTestCase() {
         assertEquals("lib.qnt", (resolved as PsiFile).name)
     }
 
+    fun testFromSourceWithoutExtension() {
+        myFixture.addFileToProject("a.qnt", "module A {\n  val x = 1\n}")
+        myFixture.configureByText("b.qnt",
+            """module B { import A.* from "<caret>./a" }""")
+        val ref = findFileReference()
+        assertNotNull("Expected file reference on from source without extension", ref)
+        val resolved = ref!!.resolve()
+        assertNotNull("Expected reference to resolve via auto-appended .qnt", resolved)
+        assertTrue("Expected PsiFile", resolved is PsiFile)
+        assertEquals("a.qnt", (resolved as PsiFile).name)
+    }
+
     fun testNonexistentFileReturnsNull() {
         myFixture.configureByText("main.qnt",
             """module Main { import X.* from "<caret>./nonexistent.qnt" }""")

@@ -864,9 +864,12 @@ Walk up from `parameters.position` checking ancestor `elementType` for `RULE_nam
 - ~~Find usages (single-file)~~ DONE in T5
 - ~~Scope-aware completion~~ DONE in T5
 - ~~Dot-context completion~~ → T6
+- ~~Type info on hover (Cmd+J / Quick Documentation)~~ DONE — uses `quint typecheck --out` modules+types, name-based declaration matching
 - Go-to-definition across files (stub indexes for imports)
 - Rename refactoring (QuintNamedElement.setName currently throws)
 - Type-aware completion (using `quint typecheck` JSON output for type info)
+- Sub-expression type info via `--source-map` (when quint adds source-map support to `typecheck` command; currently only in newer versions of `quint parse`)
+- Type alias display: show `GrappleResult` instead of expanded `{ success: bool, msg: str }` by matching structural types against known typedefs
 - Match case variant param bindings (simpleId inside matchSumVariant)
 - Destructuring patterns (`val (a, b) = ...`)
 

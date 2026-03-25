@@ -97,6 +97,24 @@ class QuintImportResolverTest : BasePlatformTestCase() {
         assertEquals("A", QuintPsiUtils.getDeclarationName(module!!))
     }
 
+    // -- resolveFromSource extension handling --
+
+    fun testResolveFromSourceWithoutExtension() {
+        myFixture.addFileToProject("imports.qnt", "module Math { val sqr = 1 }")
+        val bFile = myFixture.configureByText("main.qnt", "module M { val x = 1 }")
+        val resolved = QuintImportResolver.resolveFromSource("./imports", bFile)
+        assertNotNull("Should resolve path without .qnt extension", resolved)
+        assertEquals("imports.qnt", resolved!!.name)
+    }
+
+    fun testResolveFromSourceWithExtensionStillWorks() {
+        myFixture.addFileToProject("a.qnt", "module A { val x = 1 }")
+        val bFile = myFixture.configureByText("b.qnt", "module B { val y = 2 }")
+        val resolved = QuintImportResolver.resolveFromSource("./a.qnt", bFile)
+        assertNotNull("Should resolve path with .qnt extension", resolved)
+        assertEquals("a.qnt", resolved!!.name)
+    }
+
     // -- findImportsInModule test --
 
     fun testFindImportsInModule() {

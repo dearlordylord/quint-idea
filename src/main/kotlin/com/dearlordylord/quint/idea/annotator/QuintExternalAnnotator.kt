@@ -58,6 +58,12 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintTypec
         for (warning in annotationResult.warnings) {
             applyAnnotation(warning, filePath, document, holder, HighlightSeverity.WARNING)
         }
+
+        // Cache type data for the documentation provider
+        val virtualFile = file.virtualFile
+        if (virtualFile != null && annotationResult.modules.isNotEmpty()) {
+            QuintTypeCache.update(virtualFile, annotationResult)
+        }
     }
 
     private fun applyAnnotation(
@@ -75,7 +81,7 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintTypec
             if (loc.source != filePath) continue
 
             val textRange = computeTextRange(loc, document) ?: continue
-            holder.newAnnotation(severity, message.lines().first())
+            holder.newAnnotation(severity, message.substringBefore('\n'))
                 .range(textRange)
                 .tooltip(message)
                 .create()
@@ -83,7 +89,7 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintTypec
 
         // If no locs matched this file, but error has no locs at all, annotate start of file
         if (error.locs.isEmpty()) {
-            holder.newAnnotation(severity, message.lines().first())
+            holder.newAnnotation(severity, message.substringBefore('\n'))
                 .range(TextRange(0, minOf(1, document.textLength)))
                 .tooltip(message)
                 .create()

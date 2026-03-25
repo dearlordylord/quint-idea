@@ -96,4 +96,22 @@ class QuintImportScopeTest : BasePlatformTestCase() {
         assertTrue(resolved is QuintNamedElement)
         assertEquals("foo", (resolved as PsiNamedElement).name)
     }
+
+    fun testCrossFileWildcardImportWithoutExtension() {
+        myFixture.addFileToProject("a.qnt", """
+            module A {
+              val x = 1
+            }
+        """.trimIndent())
+        myFixture.configureByText("b.qnt", """
+            module B {
+              import A.* from "./a"
+              val y = <caret>x
+            }
+        """.trimIndent())
+        val resolved = resolveAtCaret()
+        assertNotNull("Cross-file wildcard import without .qnt extension should resolve", resolved)
+        assertTrue(resolved is QuintNamedElement)
+        assertEquals("x", (resolved as PsiNamedElement).name)
+    }
 }

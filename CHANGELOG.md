@@ -1,6 +1,13 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+- Type information on hover (Cmd+J / Quick Documentation): shows inferred types for declarations using `quint typecheck` output
+- Supports all Quint types: records, tuples, sum types, operators, type variables, Set/List
+
+## [0.4.2]
+### Fixed
+- Auto-append `.qnt` extension when resolving `from` paths (e.g., `from "./imports"` now correctly resolves to `imports.qnt`), matching Quint compiler behavior
 
 ## [0.4.1]
 ### Added

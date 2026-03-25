@@ -52,7 +52,9 @@ object QuintImportResolver {
     fun resolveFromSource(fromSource: String, contextFile: PsiFile): PsiFile? {
         val contextVf = contextFile.virtualFile ?: return null
         val parentDir = contextVf.parent ?: return null
-        val vf = parentDir.findFileByRelativePath(fromSource) ?: return null
+        // Quint compiler unconditionally appends .qnt to fromSource paths
+        val pathWithExt = if (fromSource.endsWith(".qnt")) fromSource else "$fromSource.qnt"
+        val vf = parentDir.findFileByRelativePath(pathWithExt) ?: return null
         return PsiManager.getInstance(contextFile.project).findFile(vf)
     }
 
