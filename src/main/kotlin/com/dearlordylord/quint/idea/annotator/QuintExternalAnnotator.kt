@@ -9,9 +9,12 @@ import com.intellij.openapi.editor.Document
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiFile
+import java.io.File
+import java.nio.charset.StandardCharsets
 
 data class QuintAnnotatorInput(
     val filePath: String,
+    val documentText: String,
     val toolRunner: QuintToolRunner
 )
 
@@ -20,29 +23,38 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintTypec
         private val LOG = Logger.getInstance(QuintExternalAnnotator::class.java)
 
         // Visible for testing
-        var toolRunnerFactory: (() -> QuintToolRunner)? = null
+        @Volatile var toolRunnerFactory: (() -> QuintToolRunner)? = null
     }
 
     override fun collectInformation(file: PsiFile): QuintAnnotatorInput? {
         val binaryPath = QuintSettingsState.getInstance().resolveQuintPath()
-        if (binaryPath == null) {
-            return null
-        }
+        if (binaryPath == null) return null
 
         val virtualFile = file.virtualFile ?: return null
-        val filePath = virtualFile.path
+        val document = PsiDocumentManager.getInstance(file.project).getDocument(file) ?: return null
 
         val toolRunner = toolRunnerFactory?.invoke() ?: QuintCliToolRunner()
-        return QuintAnnotatorInput(filePath, toolRunner)
+        return QuintAnnotatorInput(virtualFile.path, document.text, toolRunner)
     }
 
     override fun doAnnotate(collectedInfo: QuintAnnotatorInput?): QuintTypecheckResult? {
         if (collectedInfo == null) return null
+
+        val originalFile = File(collectedInfo.filePath)
+        val parentDir = originalFile.parentFile ?: return null
+
+        // Temp file in same dir so quint resolves relative imports
+        var tempFile: File? = null
         return try {
-            collectedInfo.toolRunner.typecheck(collectedInfo.filePath)
+            tempFile = File.createTempFile(".quint-idea-", "-${originalFile.name}", parentDir)
+            tempFile.writeText(collectedInfo.documentText, StandardCharsets.UTF_8)
+            val result = collectedInfo.toolRunner.typecheck(tempFile.canonicalPath)
+            remapSource(result, tempFile.canonicalPath, collectedInfo.filePath)
         } catch (e: Exception) {
             LOG.warn("Quint typecheck failed: ${e.message}")
             null
+        } finally {
+            tempFile?.delete()
         }
     }
 
@@ -102,7 +114,7 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintTypec
         val startCol = loc.start.col
         val endCol = loc.end.col
 
-        // Quint uses 0-based lines
+        // Quint uses 0-based lines, end col is inclusive
         if (startLine < 0 || startLine >= document.lineCount) return null
         if (endLine < 0 || endLine >= document.lineCount) return null
 
@@ -119,4 +131,16 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintTypec
 
         return TextRange(safeStart, safeEnd)
     }
+}
+
+private fun remapSource(result: QuintTypecheckResult, from: String, to: String): QuintTypecheckResult {
+    fun List<QuintError>.remap() = map { error ->
+        error.copy(locs = error.locs.map { loc ->
+            if (loc.source == from) loc.copy(source = to) else loc
+        })
+    }
+    return result.copy(
+        errors = result.errors.remap(),
+        warnings = result.warnings.remap()
+    )
 }

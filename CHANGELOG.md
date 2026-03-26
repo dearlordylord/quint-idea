@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.5.2]
+### Fixed
+- Diagnostics now typecheck the editor buffer instead of the saved file (squiggles update instantly on edit, no save needed)
+- Fixed potential temp file collision when multiple annotator runs overlap
+
 ## [0.5.1]
 ### Added
 - Auto-detect quint binary from PATH and common install locations (no manual configuration needed)
