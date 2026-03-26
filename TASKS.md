@@ -872,6 +872,7 @@ Walk up from `parameters.position` checking ancestor `elementType` for `RULE_nam
 - Type alias display: show `GrappleResult` instead of expanded `{ success: bool, msg: str }` by matching structural types against known typedefs
 - Match case variant param bindings (simpleId inside matchSumVariant)
 - Destructuring patterns (`val (a, b) = ...`)
+- Auto-close quotes: typing `"` should insert `""` with caret between; deleting opening `"` should remove both (TypedHandlerDelegate or QuintBraceMatcher config)
 
 ---
 
