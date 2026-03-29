@@ -76,6 +76,15 @@ object QuintTypeFormatter {
     private fun formatArgs(args: List<QuintTypeNode>?): String =
         args?.joinToString(", ") { formatType(it) } ?: "?"
 
+    /**
+     * Extract field names from a record type node. Returns null if not a record type.
+     */
+    fun collectRecordFields(type: QuintTypeNode): List<QuintFieldNode>? {
+        if (type.kind != "rec" || type.fields == null) return null
+        val fields = collectFields(type.fields)
+        return fields.ifEmpty { null }
+    }
+
     private fun collectFields(row: QuintRowNode): List<QuintFieldNode> {
         val result = mutableListOf<QuintFieldNode>()
         var current: QuintRowNode? = row

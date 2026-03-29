@@ -54,6 +54,10 @@ Language support for the <a href="https://github.com/informalsystems/quint">Quin
         <lang.commenter
             language="Quint"
             implementationClass="com.dearlordylord.quint.idea.editor.QuintCommenter"/>
+        <typedHandler
+            implementation="com.dearlordylord.quint.idea.editor.QuintQuoteHandler"/>
+        <backspaceHandlerDelegate
+            implementation="com.dearlordylord.quint.idea.editor.QuintBackspaceHandler"/>
         <lang.foldingBuilder
             language="Quint"
             implementationClass="com.dearlordylord.quint.idea.editor.QuintFoldingBuilder"/>
@@ -72,6 +76,9 @@ Language support for the <a href="https://github.com/informalsystems/quint">Quin
         <lang.findUsagesProvider
             language="Quint"
             implementationClass="com.dearlordylord.quint.idea.references.QuintFindUsagesProvider"/>
+        <psi.referenceContributor
+            language="Quint"
+            implementation="com.dearlordylord.quint.idea.references.QuintRecordFieldReferenceContributor"/>
 
         <!-- Documentation (Cmd+J / hover type info) -->
         <lang.documentationProvider

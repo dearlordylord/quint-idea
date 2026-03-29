@@ -26,9 +26,13 @@ object QuintTypeCache {
         file.putUserData(TYPE_DATA_KEY, declTypes)
     }
 
-    fun getFormattedType(file: VirtualFile, moduleName: String, declName: String): String? {
+    fun getTypeScheme(file: VirtualFile, moduleName: String, declName: String): QuintTypeScheme? {
         val data = file.getUserData(TYPE_DATA_KEY) ?: return null
-        val scheme = data[DeclKey(moduleName, declName)] ?: return null
+        return data[DeclKey(moduleName, declName)]
+    }
+
+    fun getFormattedType(file: VirtualFile, moduleName: String, declName: String): String? {
+        val scheme = getTypeScheme(file, moduleName, declName) ?: return null
         return QuintTypeFormatter.formatScheme(scheme)
     }
 

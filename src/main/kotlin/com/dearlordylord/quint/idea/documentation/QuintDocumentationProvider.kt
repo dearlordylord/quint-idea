@@ -1,6 +1,7 @@
 package com.dearlordylord.quint.idea.documentation
 
 import com.dearlordylord.quint.idea.annotator.QuintTypeCache
+import com.dearlordylord.quint.idea.completion.QuintCompletionContributor
 import com.dearlordylord.quint.idea.psi.QuintNamedElement
 import com.dearlordylord.quint.idea.psi.QuintPsiUtils
 import com.intellij.lang.documentation.AbstractDocumentationProvider
@@ -27,7 +28,7 @@ class QuintDocumentationProvider : AbstractDocumentationProvider() {
                 val ref = element.reference
                 ref?.resolve() as? QuintNamedElement
             }
-        } ?: return null
+        } ?: return resolveBuiltinInfo(element)
 
         val declName = declaration.name ?: return null
         val qualifier = getQualifier(declaration)
@@ -61,6 +62,14 @@ class QuintDocumentationProvider : AbstractDocumentationProvider() {
         val typeStr = StringUtil.escapeXmlEntities(info.typeString)
         val qualifierHtml = info.qualifier?.let { "<b>${StringUtil.escapeXmlEntities(it)}</b> " } ?: ""
         return "<html><body><pre>$qualifierHtml$name: $typeStr</pre></body></html>"
+    }
+
+    private fun resolveBuiltinInfo(element: PsiElement): TypeInfo? {
+        val name = element.text ?: return null
+        val info = QuintCompletionContributor.BUILTIN_OPERATORS[name]
+            ?: QuintCompletionContributor.BUILTIN_VALUES[name]
+            ?: return null
+        return TypeInfo(name, info.category, info.signature)
     }
 
     private data class TypeInfo(

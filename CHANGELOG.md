@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.5.3]
+### Added
+- Auto-close double quotes: typing `"` inserts a pair with caret between; backspace on opening `"` removes both
+- Record field completion: typing `t.` on a record-typed value suggests field names with types
+- String field completion: typing inside `t.with("...")` suggests record field names
+- Cmd+Click on `t.fieldName` and `"fieldName"` in `.with()` navigates to field definition in the type
+- Hover documentation for builtin operators (`with`, `fieldNames`, etc.)
+
 ## [0.5.2]
 ### Fixed
 - Diagnostics now typecheck the editor buffer instead of the saved file (squiggles update instantly on edit, no save needed)

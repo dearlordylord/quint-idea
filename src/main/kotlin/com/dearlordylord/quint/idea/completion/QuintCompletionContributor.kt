@@ -1,8 +1,12 @@
 package com.dearlordylord.quint.idea.completion
 
 import com.dearlordylord.quint.idea.QuintLanguage
+import com.dearlordylord.quint.idea.annotator.QuintFieldNode
+import com.dearlordylord.quint.idea.annotator.QuintTypeFormatter
 import com.dearlordylord.quint.idea.parser.QuintParser
 import com.dearlordylord.quint.idea.psi.QuintPsiUtils
+import com.dearlordylord.quint.idea.references.QuintRecordFieldReferenceContributor
+import com.dearlordylord.quint.idea.references.QuintRecordTypeResolver
 import com.dearlordylord.quint.idea.references.QuintScopeResolver
 import com.intellij.codeInsight.completion.*
 import com.intellij.codeInsight.lookup.LookupElementBuilder
@@ -19,6 +23,11 @@ class QuintCompletionContributor : CompletionContributor() {
             CompletionType.BASIC,
             PlatformPatterns.psiElement().withLanguage(QuintLanguage.INSTANCE),
             QuintCompletionProvider()
+        )
+        extend(
+            CompletionType.BASIC,
+            PlatformPatterns.psiElement().withLanguage(QuintLanguage.INSTANCE),
+            QuintRecordFieldStringCompletionProvider()
         )
     }
 
@@ -69,6 +78,15 @@ class QuintCompletionContributor : CompletionContributor() {
                 }
             }
 
+            // Record field completions in dot context
+            if (dotContext) {
+                val scopePos = parameters.originalPosition ?: parameters.position
+                val fields = QuintRecordTypeResolver.resolveReceiverRecordFields(scopePos)
+                if (fields != null) {
+                    addFieldCompletions(fields, result)
+                }
+            }
+
             // Builtin operators — shown in both contexts
             for ((name, info) in BUILTIN_OPERATORS) {
                 result.addElement(
@@ -94,8 +112,42 @@ class QuintCompletionContributor : CompletionContributor() {
         }
     }
 
+    /**
+     * Provides record field name completions inside string arguments of `.with("...")`.
+     */
+    class QuintRecordFieldStringCompletionProvider : CompletionProvider<CompletionParameters>() {
+        override fun addCompletions(
+            parameters: CompletionParameters,
+            context: ProcessingContext,
+            result: CompletionResultSet
+        ) {
+            val position = parameters.originalPosition ?: parameters.position
+
+            // Check if we're inside a STRING in a .with() call
+            // toString() because ANTLR and JFlex have separate IElementType instances
+            val isString = position.node?.elementType?.toString() == "STRING"
+                || position.parent?.node?.elementType?.toString() == "STRING"
+            if (!isString) return
+
+            val dotCall = QuintRecordFieldReferenceContributor.findWithDotCall(position) ?: return
+            val fields = QuintRecordTypeResolver.resolveRecordFieldsFromDotCall(dotCall) ?: return
+            addFieldCompletions(fields, result)
+        }
+    }
+
     companion object {
         private val DOT_CALLABLE_QUALIFIERS = setOf("def", "pure def", "action", "run", "temporal", "nondet")
+
+        private fun addFieldCompletions(fields: List<QuintFieldNode>, result: CompletionResultSet) {
+            for (field in fields) {
+                result.addElement(
+                    LookupElementBuilder.create(field.fieldName)
+                        .withTypeText(QuintTypeFormatter.format(field.fieldType))
+                        .withTailText("  field", true)
+                        .bold()
+                )
+            }
+        }
 
         fun isDotContext(position: PsiElement): Boolean {
             var current = position.parent
@@ -207,6 +259,9 @@ class QuintCompletionContributor : CompletionContributor() {
             "reps" to BuiltinInfo("(int, (int) => bool) => bool", "action"),
             "fail" to BuiltinInfo("(bool) => bool", "action"),
             "assert" to BuiltinInfo("(bool) => bool", "action"),
+            // Record
+            "with" to BuiltinInfo("(r, str, a) => r", "record"),
+            "fieldNames" to BuiltinInfo("(r) => Set[str]", "record"),
         )
 
         val BUILTIN_VALUES = mapOf(

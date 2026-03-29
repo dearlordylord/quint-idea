@@ -25,7 +25,11 @@ class QuintReference(element: PsiElement, textRange: TextRange) :
         if (instanceParam != null) return instanceParam
 
         val declarations = QuintScopeResolver.findVisibleDeclarations(element)
-        return declarations.firstOrNull { it.name == name }
+        val scopeResult = declarations.firstOrNull { it.name == name }
+        if (scopeResult != null) return scopeResult
+
+        // Fallback: if inside nameAfterDot, try resolving as a record field
+        return resolveAsRecordField(name)
     }
 
     override fun handleElementRename(newElementName: String): PsiElement {
@@ -43,6 +47,28 @@ class QuintReference(element: PsiElement, textRange: TextRange) :
     }
 
     override fun getVariants(): Array<Any> = emptyArray()
+
+    private fun resolveAsRecordField(name: String): PsiElement? {
+        // Check if our qualId is inside a nameAfterDot
+        val parent = element.parent ?: return null
+        val parentType = parent.node?.elementType as? RuleIElementType ?: return null
+
+        // qualId -> nameAfterDot check (could be direct or via intermediate node)
+        val nameAfterDot = if (parentType.ruleIndex == QuintParser.RULE_nameAfterDot) {
+            parent
+        } else {
+            val gp = parent.parent ?: return null
+            val gpType = gp.node?.elementType as? RuleIElementType ?: return null
+            if (gpType.ruleIndex == QuintParser.RULE_nameAfterDot) gp else return null
+        }
+
+        // nameAfterDot's parent should be the dotCall expr
+        val dotCall = nameAfterDot.parent ?: return null
+        val fields = QuintRecordTypeResolver.resolveRecordFieldsFromDotCall(dotCall) ?: return null
+
+        if (fields.none { it.fieldName == name }) return null
+        return QuintRecordTypeResolver.findFieldDefinition(name, fields, element)
+    }
 
     private fun resolveInstanceParam(name: String): PsiElement? {
         // qualId → name → instanceMod

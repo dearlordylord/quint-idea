@@ -841,7 +841,7 @@ Walk up from `parameters.position` checking ancestor `elementType` for `RULE_nam
 - `and`/`or`/`iff`/`implies` appear in both contexts
 
 ### Scope Exclusions (future tasks)
-- No record field completion (requires type info)
+- ~~No record field completion (requires type info)~~ DONE — record field completion in dot context + string completion in `.with()`
 - No adjusted signatures in dot context (e.g. hiding first param)
 - No type-aware filtering (e.g. showing only Set ops for Set receivers)
 
@@ -867,7 +867,8 @@ Walk up from `parameters.position` checking ancestor `elementType` for `RULE_nam
 - ~~Type info on hover (Cmd+J / Quick Documentation)~~ DONE — uses `quint typecheck --out` modules+types, name-based declaration matching
 - Go-to-definition across files (stub indexes for imports)
 - Rename refactoring (QuintNamedElement.setName currently throws)
-- Type-aware completion (using `quint typecheck` JSON output for type info)
+- ~~Type-aware completion (using `quint typecheck` JSON output for type info)~~ DONE — record field completion + `.with()` string completion + field Cmd+Click + builtin hover docs
+- Expression-level type resolution: currently only simple identifier receivers (e.g., `t.with(...)`) resolve their type; chained expressions (e.g., `f(x).with(...)`) require caching types by expression ID from `quint typecheck` output, mapping PSI positions to expression IDs (possibly via `--source-map` when available)
 - Sub-expression type info via `--source-map` (when quint adds source-map support to `typecheck` command; currently only in newer versions of `quint parse`)
 - Type alias display: show `GrappleResult` instead of expanded `{ success: bool, msg: str }` by matching structural types against known typedefs
 - Match case variant param bindings (simpleId inside matchSumVariant)
