@@ -65,21 +65,17 @@ object QuintRecordTypeResolver {
      * Currently only handles simple identifier expressions (qualId).
      */
     private fun resolveExprType(expr: PsiElement): QuintTypeNode? {
-        // Find the qualId in this expression
         val qualId = findQualId(expr) ?: return null
 
-        // Resolve to declaration
         val ref = QuintReference(qualId, TextRange(0, qualId.textLength))
         val declaration = ref.resolve() ?: return null
 
-        // Get declaration name and module
         val declName = QuintPsiUtils.getDeclarationName(declaration)
             ?: QuintPsiUtils.getDeclarationName(declaration.parent)
             ?: return null
         val module = QuintPsiUtils.getContainingModule(declaration) ?: return null
         val moduleName = QuintPsiUtils.getDeclarationName(module) ?: return null
 
-        // Look up type in cache — try declaration's file first, then the expression's file
         val declFile = declaration.containingFile?.virtualFile
         val exprFile = expr.containingFile?.virtualFile
 

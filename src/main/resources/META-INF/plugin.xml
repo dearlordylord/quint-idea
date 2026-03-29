@@ -79,6 +79,8 @@ Language support for the <a href="https://github.com/informalsystems/quint">Quin
         <psi.referenceContributor
             language="Quint"
             implementation="com.dearlordylord.quint.idea.references.QuintRecordFieldReferenceContributor"/>
+        <gotoDeclarationHandler
+            implementation="com.dearlordylord.quint.idea.references.QuintRecordFieldGotoHandler"/>
 
         <!-- Documentation (Cmd+J / hover type info) -->
         <lang.documentationProvider

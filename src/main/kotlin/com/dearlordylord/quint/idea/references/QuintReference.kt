@@ -49,11 +49,9 @@ class QuintReference(element: PsiElement, textRange: TextRange) :
     override fun getVariants(): Array<Any> = emptyArray()
 
     private fun resolveAsRecordField(name: String): PsiElement? {
-        // Check if our qualId is inside a nameAfterDot
         val parent = element.parent ?: return null
         val parentType = parent.node?.elementType as? RuleIElementType ?: return null
 
-        // qualId -> nameAfterDot check (could be direct or via intermediate node)
         val nameAfterDot = if (parentType.ruleIndex == QuintParser.RULE_nameAfterDot) {
             parent
         } else {

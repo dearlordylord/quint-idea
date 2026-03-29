@@ -9,6 +9,7 @@ import com.intellij.psi.*
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.ProcessingContext
 import org.antlr.intellij.adaptor.lexer.RuleIElementType
+import org.antlr.intellij.adaptor.lexer.TokenIElementType
 
 /**
  * Injects references onto string literals that are field name arguments in `.with("fieldName", value)`.
@@ -25,11 +26,10 @@ class QuintRecordFieldReferenceContributor : PsiReferenceContributor() {
 
     private class QuintRecordFieldReferenceProvider : PsiReferenceProvider() {
         override fun getReferencesByElement(element: PsiElement, context: ProcessingContext): Array<PsiReference> {
-            // Only handle STRING tokens (toString() because ANTLR and JFlex have separate IElementType instances)
-            if (element.node?.elementType?.toString() != "STRING") return PsiReference.EMPTY_ARRAY
+            val elType = element.node?.elementType
+            if (elType !is TokenIElementType || !elType.toString().contains("STRING")) return PsiReference.EMPTY_ARRAY
 
             val dotCall = findWithDotCall(element) ?: return PsiReference.EMPTY_ARRAY
-
             val fields = QuintRecordTypeResolver.resolveRecordFieldsFromDotCall(dotCall)
                 ?: return PsiReference.EMPTY_ARRAY
 

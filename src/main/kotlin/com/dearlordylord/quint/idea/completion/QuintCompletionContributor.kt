@@ -8,6 +8,7 @@ import com.dearlordylord.quint.idea.psi.QuintPsiUtils
 import com.dearlordylord.quint.idea.references.QuintRecordFieldReferenceContributor
 import com.dearlordylord.quint.idea.references.QuintRecordTypeResolver
 import com.dearlordylord.quint.idea.references.QuintScopeResolver
+import org.antlr.intellij.adaptor.lexer.TokenIElementType
 import com.intellij.codeInsight.completion.*
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.patterns.PlatformPatterns
@@ -124,9 +125,7 @@ class QuintCompletionContributor : CompletionContributor() {
             val position = parameters.originalPosition ?: parameters.position
 
             // Check if we're inside a STRING in a .with() call
-            // toString() because ANTLR and JFlex have separate IElementType instances
-            val isString = position.node?.elementType?.toString() == "STRING"
-                || position.parent?.node?.elementType?.toString() == "STRING"
+            val isString = isStringToken(position) || isStringToken(position.parent)
             if (!isString) return
 
             val dotCall = QuintRecordFieldReferenceContributor.findWithDotCall(position) ?: return
@@ -137,6 +136,11 @@ class QuintCompletionContributor : CompletionContributor() {
 
     companion object {
         private val DOT_CALLABLE_QUALIFIERS = setOf("def", "pure def", "action", "run", "temporal", "nondet")
+
+        private fun isStringToken(element: PsiElement?): Boolean {
+            val elType = element?.node?.elementType ?: return false
+            return elType is TokenIElementType && elType.toString().contains("STRING")
+        }
 
         private fun addFieldCompletions(fields: List<QuintFieldNode>, result: CompletionResultSet) {
             for (field in fields) {
