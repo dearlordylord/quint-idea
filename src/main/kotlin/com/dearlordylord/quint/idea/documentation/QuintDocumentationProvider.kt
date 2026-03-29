@@ -32,6 +32,13 @@ class QuintDocumentationProvider : AbstractDocumentationProvider() {
 
         val declName = declaration.name ?: return null
         val qualifier = getQualifier(declaration)
+
+        // For annotatedParameter nodes, read the type annotation directly from the PSI
+        val annotationType = getAnnotatedParameterType(declaration)
+        if (annotationType != null) {
+            return TypeInfo(declName, qualifier, annotationType)
+        }
+
         val moduleName = findModuleName(declaration) ?: return null
 
         // Look up the type in the cache — try the declaration's file first,
@@ -55,6 +62,10 @@ class QuintDocumentationProvider : AbstractDocumentationProvider() {
         val parent = declaration.parent ?: return null
         return QuintPsiUtils.getDeclarationQualifier(parent)
             ?: QuintPsiUtils.getDeclarationQualifier(declaration)
+    }
+
+    private fun getAnnotatedParameterType(declaration: QuintNamedElement): String? {
+        return QuintPsiUtils.getAnnotatedParameterTypeNode(declaration)?.text
     }
 
     private fun buildHtml(info: TypeInfo): String {

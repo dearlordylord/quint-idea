@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.5.4]
+### Added
+- Plugin icon (Quint logo) for JetBrains Marketplace and IDE plugin list
+
+### Fixed
+- Hover documentation now shows type for annotated parameters (e.g. `t: TurnState`)
+- Cmd+Click on record fields (e.g. `t.actionsRemaining`) works when receiver is an annotated parameter
+- Type hover and field resolution now works for `type` definitions (e.g. `TurnState`, `CreatureState`)
+
 ## [0.5.3]
 ### Added
 - Auto-close double quotes: typing `"` inserts a pair with caret between; backspace on opening `"` removes both

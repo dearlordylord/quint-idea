@@ -39,7 +39,8 @@ data class QuintDeclaration(
     val kind: String,
     val name: String,
     val qualifier: String?,
-    val typeAnnotation: QuintTypeNode?
+    val typeAnnotation: QuintTypeNode?,
+    val type: QuintTypeNode?
 )
 
 data class QuintTypeScheme(
@@ -155,7 +156,8 @@ object QuintTypecheckResultParser {
         val kind: String?,
         val name: String?,
         val qualifier: String?,
-        val typeAnnotation: RawQuintTypeNode?
+        val typeAnnotation: RawQuintTypeNode?,
+        val type: RawQuintTypeNode?
     ) {
         fun toQuintDeclaration(): QuintDeclaration? {
             val declName = name ?: return null
@@ -164,7 +166,8 @@ object QuintTypecheckResultParser {
                 kind = kind ?: "",
                 name = declName,
                 qualifier = qualifier,
-                typeAnnotation = typeAnnotation?.toQuintTypeNode()
+                typeAnnotation = typeAnnotation?.toQuintTypeNode(),
+                type = type?.toQuintTypeNode()
             )
         }
     }

@@ -214,6 +214,15 @@ object QuintPsiUtils {
     }
 
     /**
+     * If element is an annotatedParameter, return its type child node; null otherwise.
+     */
+    fun getAnnotatedParameterTypeNode(element: PsiElement): PsiElement? {
+        val type = element.node?.elementType
+        if (type != ANNOTATED_PARAMETER_RULE) return null
+        return findFirstChildOfRule(element, QuintParser.RULE_type)
+    }
+
+    /**
      * Create a fresh qualId PSI node from a name string by parsing a dummy file.
      */
     fun createQualIdFromText(project: Project, name: String): PsiElement? {

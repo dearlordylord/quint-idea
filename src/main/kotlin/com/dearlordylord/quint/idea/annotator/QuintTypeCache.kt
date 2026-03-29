@@ -19,6 +19,13 @@ object QuintTypeCache {
                 val typeScheme = result.types[decl.id.toString()]
                 if (typeScheme != null) {
                     declTypes[DeclKey(module.name, decl.name)] = typeScheme
+                } else if (decl.kind == "typedef" && decl.type != null) {
+                    // typedef declarations store their type inline, not in the types map
+                    declTypes[DeclKey(module.name, decl.name)] = QuintTypeScheme(
+                        typeVariables = emptyList(),
+                        rowVariables = emptyList(),
+                        type = decl.type
+                    )
                 }
             }
         }

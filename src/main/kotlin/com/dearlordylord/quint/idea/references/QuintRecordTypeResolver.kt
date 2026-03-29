@@ -70,6 +70,10 @@ object QuintRecordTypeResolver {
         val ref = QuintReference(qualId, TextRange(0, qualId.textLength))
         val declaration = ref.resolve() ?: return null
 
+        // For annotatedParameter (e.g. `t: TurnState`), resolve via the type annotation
+        val annotatedType = resolveAnnotatedParameterType(declaration, expr)
+        if (annotatedType != null) return annotatedType
+
         val declName = QuintPsiUtils.getDeclarationName(declaration)
             ?: QuintPsiUtils.getDeclarationName(declaration.parent)
             ?: return null
@@ -81,6 +85,27 @@ object QuintRecordTypeResolver {
 
         val scheme = declFile?.let { QuintTypeCache.getTypeScheme(it, moduleName, declName) }
             ?: exprFile?.takeIf { it != declFile }?.let { QuintTypeCache.getTypeScheme(it, moduleName, declName) }
+            ?: return null
+
+        return scheme.type
+    }
+
+    /**
+     * For an annotatedParameter, extract the type name from the annotation
+     * and look it up in the type cache. Only works for named types (e.g. TurnState),
+     * not compound types (e.g. Set[int]) — those aren't record types anyway.
+     */
+    private fun resolveAnnotatedParameterType(declaration: PsiElement, contextExpr: PsiElement): QuintTypeNode? {
+        val typeName = QuintPsiUtils.getAnnotatedParameterTypeNode(declaration)?.text ?: return null
+
+        val module = QuintPsiUtils.getContainingModule(declaration) ?: return null
+        val moduleName = QuintPsiUtils.getDeclarationName(module) ?: return null
+
+        val declFile = declaration.containingFile?.virtualFile
+        val exprFile = contextExpr.containingFile?.virtualFile
+
+        val scheme = declFile?.let { QuintTypeCache.getTypeScheme(it, moduleName, typeName) }
+            ?: exprFile?.takeIf { it != declFile }?.let { QuintTypeCache.getTypeScheme(it, moduleName, typeName) }
             ?: return null
 
         return scheme.type
