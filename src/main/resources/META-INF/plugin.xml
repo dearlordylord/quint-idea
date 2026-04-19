@@ -100,5 +100,7 @@ Language support for the <a href="https://github.com/informalsystems/quint">Quin
             displayName="Quint"/>
         <applicationService
             serviceImplementation="com.dearlordylord.quint.idea.settings.QuintSettingsState"/>
+        <applicationService
+            serviceImplementation="com.dearlordylord.quint.idea.annotator.QuintTypecheckSchedulingService"/>
     </extensions>
 </idea-plugin>

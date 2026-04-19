@@ -9,21 +9,34 @@ import com.intellij.openapi.editor.Document
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiFile
+import java.util.concurrent.ConcurrentHashMap
 import java.io.File
 import java.nio.charset.StandardCharsets
 
 data class QuintAnnotatorInput(
     val filePath: String,
     val documentText: String,
+    val modificationStamp: Long,
+    val cachedResult: QuintTypecheckResult?,
     val toolRunner: QuintToolRunner
 )
 
-class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintTypecheckResult>() {
+data class QuintAnnotationResult(
+    val modificationStamp: Long,
+    val typecheckResult: QuintTypecheckResult
+)
+
+class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintAnnotationResult>() {
     companion object {
         private val LOG = Logger.getInstance(QuintExternalAnnotator::class.java)
+        private val resultCache = ConcurrentHashMap<String, CachedTypecheckResult>()
 
         // Visible for testing
         @Volatile var toolRunnerFactory: (() -> QuintToolRunner)? = null
+
+        internal fun clearCacheForTests() {
+            resultCache.clear()
+        }
     }
 
     override fun collectInformation(file: PsiFile): QuintAnnotatorInput? {
@@ -32,13 +45,27 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintTypec
 
         val virtualFile = file.virtualFile ?: return null
         val document = PsiDocumentManager.getInstance(file.project).getDocument(file) ?: return null
+        val scheduler = QuintTypecheckSchedulingService.getInstance()
+        if (scheduler.shouldDefer(document)) return null
+
+        val modificationStamp = document.modificationStamp
+        val cachedResult = resultCache[virtualFile.path]?.takeIf { it.modificationStamp == modificationStamp }?.result
 
         val toolRunner = toolRunnerFactory?.invoke() ?: QuintCliToolRunner()
-        return QuintAnnotatorInput(virtualFile.path, document.text, toolRunner)
+        return QuintAnnotatorInput(
+            filePath = virtualFile.path,
+            documentText = document.text,
+            modificationStamp = modificationStamp,
+            cachedResult = cachedResult,
+            toolRunner = toolRunner
+        )
     }
 
-    override fun doAnnotate(collectedInfo: QuintAnnotatorInput?): QuintTypecheckResult? {
+    override fun doAnnotate(collectedInfo: QuintAnnotatorInput?): QuintAnnotationResult? {
         if (collectedInfo == null) return null
+        collectedInfo.cachedResult?.let {
+            return QuintAnnotationResult(collectedInfo.modificationStamp, it)
+        }
 
         val originalFile = File(collectedInfo.filePath)
         val parentDir = originalFile.parentFile ?: return null
@@ -49,7 +76,15 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintTypec
             tempFile = File.createTempFile(".quint-idea-", "-${originalFile.name}", parentDir)
             tempFile.writeText(collectedInfo.documentText, StandardCharsets.UTF_8)
             val result = collectedInfo.toolRunner.typecheck(tempFile.canonicalPath)
-            remapSource(result, tempFile.canonicalPath, collectedInfo.filePath)
+            val annotationResult = QuintAnnotationResult(
+                modificationStamp = collectedInfo.modificationStamp,
+                typecheckResult = remapSource(result, tempFile.canonicalPath, collectedInfo.filePath)
+            )
+            resultCache[collectedInfo.filePath] = CachedTypecheckResult(
+                collectedInfo.modificationStamp,
+                annotationResult.typecheckResult
+            )
+            annotationResult
         } catch (e: Exception) {
             LOG.warn("Quint typecheck failed: ${e.message}")
             null
@@ -58,23 +93,26 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintTypec
         }
     }
 
-    override fun apply(file: PsiFile, annotationResult: QuintTypecheckResult?, holder: AnnotationHolder) {
+    override fun apply(file: PsiFile, annotationResult: QuintAnnotationResult?, holder: AnnotationHolder) {
         if (annotationResult == null) return
 
         val document = PsiDocumentManager.getInstance(file.project).getDocument(file) ?: return
         val filePath = file.virtualFile?.path ?: return
+        if (document.modificationStamp != annotationResult.modificationStamp) return
 
-        for (error in annotationResult.errors) {
+        resultCache[filePath] = CachedTypecheckResult(document.modificationStamp, annotationResult.typecheckResult)
+
+        for (error in annotationResult.typecheckResult.errors) {
             applyAnnotation(error, filePath, document, holder, HighlightSeverity.ERROR)
         }
-        for (warning in annotationResult.warnings) {
+        for (warning in annotationResult.typecheckResult.warnings) {
             applyAnnotation(warning, filePath, document, holder, HighlightSeverity.WARNING)
         }
 
         // Cache type data for the documentation provider
         val virtualFile = file.virtualFile
-        if (virtualFile != null && annotationResult.modules.isNotEmpty()) {
-            QuintTypeCache.update(virtualFile, annotationResult)
+        if (virtualFile != null && annotationResult.typecheckResult.modules.isNotEmpty()) {
+            QuintTypeCache.update(virtualFile, annotationResult.typecheckResult)
         }
     }
 
@@ -132,6 +170,11 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintTypec
         return TextRange(safeStart, safeEnd)
     }
 }
+
+private data class CachedTypecheckResult(
+    val modificationStamp: Long,
+    val result: QuintTypecheckResult
+)
 
 private fun remapSource(result: QuintTypecheckResult, from: String, to: String): QuintTypecheckResult {
     fun List<QuintError>.remap() = map { error ->
