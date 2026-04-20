@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+### Fixed
+- Debounced external typechecking while typing so editor diagnostics wait for a short idle period instead of re-running on every keystroke
 
 ## [0.5.5]
 ### Fixed
