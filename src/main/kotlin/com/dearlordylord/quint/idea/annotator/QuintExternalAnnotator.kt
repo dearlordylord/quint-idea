@@ -11,6 +11,7 @@ import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.util.io.FileUtil
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiFile
 import org.jetbrains.annotations.TestOnly
 import java.io.File
@@ -98,7 +99,7 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintAnnot
      * non-physical "highlighting copy" whose own document is a fresh snapshot with
      * modStamp=0 — useless for caching. `originalFile.virtualFile` points at the real one.
      */
-    private fun resolveEditorDocument(file: PsiFile): Pair<com.intellij.openapi.vfs.VirtualFile, Document>? {
+    private fun resolveEditorDocument(file: PsiFile): Pair<VirtualFile, Document>? {
         val virtualFile = file.originalFile.virtualFile ?: file.virtualFile ?: return null
         val document = FileDocumentManager.getInstance().getDocument(virtualFile) ?: return null
         return virtualFile to document
