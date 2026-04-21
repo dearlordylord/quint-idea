@@ -18,7 +18,6 @@ import java.util.concurrent.ConcurrentHashMap
 
 data class QuintAnnotatorInput(
     val filePath: String,
-    /** The exact text snapshot we will hand to quint; cache key matches this. */
     val documentText: String,
     val contentHash: Int,
     val cachedResult: QuintTypecheckResult?,
@@ -36,7 +35,6 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintAnnot
         private val LOG = Logger.getInstance(QuintExternalAnnotator::class.java)
         private val resultCache = ConcurrentHashMap<String, CachedTypecheckResult>()
 
-        // Visible for testing
         @Volatile var toolRunnerFactory: (() -> QuintToolRunner)? = null
 
         internal fun clearCacheForTests() {
@@ -48,35 +46,29 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintAnnot
         collectInformation(file)
 
     override fun collectInformation(file: PsiFile): QuintAnnotatorInput? {
-        val binaryPath = QuintSettingsState.getInstance().resolveQuintPath()
-        if (binaryPath == null) return null
+        if (QuintSettingsState.getInstance().resolveQuintPath() == null) return null
 
-        // The daemon often hands us a non-physical "highlighting copy" of the PsiFile.
-        // Resolve to the original file's VirtualFile so we always look at the real document.
-        val originalPsi = file.originalFile
-        val virtualFile = originalPsi.virtualFile ?: file.virtualFile ?: return null
+        // Daemon often hands us a non-physical "highlighting copy" whose document is
+        // a fresh in-memory snapshot with modStamp=0. Always use the editor's real
+        // document via the original file's VirtualFile.
+        val virtualFile = file.originalFile.virtualFile ?: file.virtualFile ?: return null
         val document = FileDocumentManager.getInstance().getDocument(virtualFile) ?: return null
 
         val path = virtualFile.path
-        // Snapshot the text NOW. This is what quint will typecheck and what the
-        // cache key will reference. Using save-and-read-disk has a race: between save
-        // and quint reading the file, the user may have typed more, so the cache key
-        // would not match what quint actually saw. Snapshotting eliminates the race.
         val documentText = document.charsSequence.toString()
         val contentHash = documentText.hashCode()
         val cached = resultCache[path]
         val cacheHit = cached?.contentHash == contentHash
-        val cacheToEcho = if (cacheHit) cached?.result else null
         val deferring = QuintTypecheckSchedulingService.getInstance().shouldDefer(document)
+        val skipTypecheck = deferring || cacheHit
 
-        LOG.info("collectInformation $path: hash=$contentHash deferring=$deferring cacheHit=$cacheHit (psiCopy=${originalPsi !== file})")
         return QuintAnnotatorInput(
             filePath = path,
             documentText = documentText,
             contentHash = contentHash,
-            cachedResult = cacheToEcho,
-            skipTypecheck = deferring || cacheHit,
-            toolRunner = toolRunnerFactory?.invoke() ?: QuintCliToolRunner()
+            cachedResult = if (cacheHit) cached?.result else null,
+            skipTypecheck = skipTypecheck,
+            toolRunner = if (skipTypecheck) DummyToolRunner else toolRunnerFactory?.invoke() ?: QuintCliToolRunner()
         )
     }
 
@@ -85,44 +77,31 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintAnnot
         val path = collectedInfo.filePath
 
         if (collectedInfo.skipTypecheck) {
-            val echo = collectedInfo.cachedResult
-            LOG.info("doAnnotate $path: skip typecheck (cached=${echo != null}, errors=${echo?.errors?.size ?: 0})")
-            return echo?.let { QuintAnnotationResult(collectedInfo.contentHash, it) }
+            return collectedInfo.cachedResult?.let {
+                QuintAnnotationResult(collectedInfo.contentHash, it)
+            }
         }
 
-        // Snapshot the document into a private workspace under the system tmp dir,
-        // copy the sibling .qnt files alongside so quint can resolve relative imports,
-        // and run quint there. Nothing is written into the user's repo.
         val originalFile = File(path)
-        val parentDir = originalFile.parentFile?.takeIf { it.exists() && it.isDirectory }
+        val parentDir = originalFile.parentFile ?: return null
 
-        val pathForQuint: String
-        var workspaceRoot: File? = null
         return try {
-            if (parentDir != null) {
-                workspaceRoot = mirrorWorkspace(parentDir, originalFile.name, collectedInfo.documentText)
-                pathForQuint = File(workspaceRoot, originalFile.name).canonicalPath
-            } else {
-                // Test fixtures use a virtual FS; the mocked toolRunner doesn't read disk.
-                pathForQuint = path
-            }
-            LOG.info("doAnnotate $path: invoking typecheck on $pathForQuint")
+            val workspaceRoot = mirrorWorkspace(parentDir, originalFile.name, collectedInfo.documentText)
+            val pathForQuint = File(workspaceRoot, originalFile.name).canonicalPath
             val raw = collectedInfo.toolRunner.typecheck(pathForQuint)
-            val result = if (workspaceRoot != null) remapAllSources(raw, workspaceRoot.canonicalPath, parentDir!!.canonicalPath) else raw
-            LOG.info("doAnnotate $path: result errors=${result.errors.size} warnings=${result.warnings.size}")
+            val result = remapAllSources(raw, workspaceRoot.canonicalPath, parentDir.canonicalPath)
             resultCache[path] = CachedTypecheckResult(collectedInfo.contentHash, result)
             QuintAnnotationResult(collectedInfo.contentHash, result)
         } catch (e: Exception) {
-            LOG.warn("doAnnotate $path: typecheck failed: ${e.message}", e)
+            LOG.warn("Quint typecheck failed for $path: ${e.message}", e)
             null
         }
     }
 
     /**
-     * Build / refresh a private mirror of `sourceDir` under the system tmp dir, then
-     * write `targetText` as the snapshot for `targetName`. Sibling .qnt files are hard-
-     * linked when possible, copied otherwise. Mirror lives across calls so we only
-     * re-link files that changed since the last typecheck.
+     * Hard-links (or copies) sibling .qnt files from [sourceDir] into a stable mirror
+     * under the system tmp dir so relative imports resolve, then writes [targetText] as
+     * the snapshot for [targetName]. Keeps nothing in the user's source dir.
      */
     private fun mirrorWorkspace(sourceDir: File, targetName: String, targetText: String): File {
         val workspace = File(
@@ -142,8 +121,6 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintAnnot
             }
         }
 
-        // Always replace the target with our snapshot. Delete any leftover hard-link
-        // (would be the original on-disk content) before writing.
         val target = File(workspace, targetName)
         target.delete()
         target.writeText(targetText, StandardCharsets.UTF_8)
@@ -153,24 +130,20 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintAnnot
     override fun apply(file: PsiFile, annotationResult: QuintAnnotationResult?, holder: AnnotationHolder) {
         if (annotationResult == null) return
 
-        val originalPsi = file.originalFile
-        val virtualFile = originalPsi.virtualFile ?: file.virtualFile ?: return
+        val virtualFile = file.originalFile.virtualFile ?: file.virtualFile ?: return
         val document = FileDocumentManager.getInstance().getDocument(virtualFile) ?: return
 
         val result = annotationResult.typecheckResult
-        var written = 0
         for (error in result.errors) {
-            written += applyAnnotation(error, virtualFile.path, document, holder, HighlightSeverity.ERROR)
+            applyAnnotation(error, virtualFile.path, document, holder, HighlightSeverity.ERROR)
         }
         for (warning in result.warnings) {
-            written += applyAnnotation(warning, virtualFile.path, document, holder, HighlightSeverity.WARNING)
+            applyAnnotation(warning, virtualFile.path, document, holder, HighlightSeverity.WARNING)
         }
-        LOG.info("apply ${virtualFile.path}: wrote $written annotations (errors=${result.errors.size} warnings=${result.warnings.size}) modules=${result.modules.size} types=${result.types.size}")
 
-        // Only refresh the type cache when quint actually returned type info. When
-        // typecheck has errors quint returns modules but an empty types map; if we
-        // updated from that we'd wipe the previous (good) types and the hover would
-        // go blank. Preserve the last good types instead.
+        // When typecheck has errors quint returns modules with an empty types map;
+        // replacing our cache with it would wipe the last good type data and make
+        // hover go blank. Preserve the previous types instead.
         if (result.modules.isNotEmpty() && result.types.isNotEmpty()) {
             QuintTypeCache.update(virtualFile, result)
         }
@@ -182,54 +155,43 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintAnnot
         document: Document,
         holder: AnnotationHolder,
         severity: HighlightSeverity
-    ): Int {
+    ) {
         val message = error.explanation.trim()
-        if (message.isEmpty()) return 0
+        if (message.isEmpty()) return
 
-        var written = 0
+        var matched = false
         for (loc in error.locs) {
             if (loc.source != filePath) continue
-
             val textRange = computeTextRange(loc, document) ?: continue
             holder.newAnnotation(severity, message.substringBefore('\n'))
                 .range(textRange)
                 .tooltip(message)
                 .create()
-            written++
+            matched = true
         }
 
-        if (error.locs.isEmpty()) {
+        if (!matched && error.locs.isEmpty()) {
             holder.newAnnotation(severity, message.substringBefore('\n'))
                 .range(TextRange(0, minOf(1, document.textLength)))
                 .tooltip(message)
                 .create()
-            written++
         }
-        return written
     }
 
     private fun computeTextRange(loc: QuintErrorLocation, document: Document): TextRange? {
         val startLine = loc.start.line
         val endLine = loc.end.line
-        val startCol = loc.start.col
-        val endCol = loc.end.col
-
-        // Quint uses 0-based lines, end col is inclusive
         if (startLine < 0 || startLine >= document.lineCount) return null
         if (endLine < 0 || endLine >= document.lineCount) return null
 
-        val startOffset = document.getLineStartOffset(startLine) + startCol
-        val endOffset = document.getLineStartOffset(endLine) + endCol
-
-        // Ensure at least 1 char is highlighted
+        val startOffset = document.getLineStartOffset(startLine) + loc.start.col
+        val endOffset = document.getLineStartOffset(endLine) + loc.end.col
+        // Quint's end column is inclusive; PSI ranges are exclusive.
         val adjustedEnd = if (endOffset <= startOffset) startOffset + 1 else endOffset + 1
 
         val safeStart = startOffset.coerceIn(0, document.textLength)
         val safeEnd = adjustedEnd.coerceIn(safeStart, document.textLength)
-
-        if (safeStart == safeEnd) return null
-
-        return TextRange(safeStart, safeEnd)
+        return if (safeStart == safeEnd) null else TextRange(safeStart, safeEnd)
     }
 }
 
@@ -238,15 +200,20 @@ private data class CachedTypecheckResult(
     val result: QuintTypecheckResult
 )
 
-/** Remap any source path under `fromDir` to the equivalent path under `toDir`. */
+/** No-op runner used when we'll skip typecheck anyway — avoids allocating a real one on cache hits. */
+private object DummyToolRunner : QuintToolRunner {
+    override fun typecheck(filePath: String): QuintTypecheckResult =
+        QuintTypecheckResult(stage = "skipped", errors = emptyList(), warnings = emptyList())
+}
+
+/** Remap source paths from a mirror dir back to the user's original directory. */
 private fun remapAllSources(result: QuintTypecheckResult, fromDir: String, toDir: String): QuintTypecheckResult {
+    val fromPrefix = if (fromDir.endsWith(File.separator)) fromDir else fromDir + File.separator
+    val toPrefix = if (toDir.endsWith(File.separator)) toDir else toDir + File.separator
     fun remapPath(p: String): String =
-        if (p.startsWith(fromDir)) toDir + p.substring(fromDir.length) else p
+        if (p.startsWith(fromPrefix)) toPrefix + p.substring(fromPrefix.length) else p
     fun List<QuintError>.remap() = map { error ->
         error.copy(locs = error.locs.map { loc -> loc.copy(source = remapPath(loc.source)) })
     }
-    return result.copy(
-        errors = result.errors.remap(),
-        warnings = result.warnings.remap()
-    )
+    return result.copy(errors = result.errors.remap(), warnings = result.warnings.remap())
 }
