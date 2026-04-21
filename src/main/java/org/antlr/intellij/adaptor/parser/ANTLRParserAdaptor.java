@@ -13,6 +13,8 @@ import org.antlr.intellij.adaptor.lexer.PSIElementTypeFactory;
 import org.antlr.intellij.adaptor.lexer.RuleIElementType;
 import org.antlr.intellij.adaptor.lexer.TokenIElementType;
 import org.antlr.v4.runtime.*;
+import org.antlr.v4.runtime.atn.PredictionMode;
+import org.antlr.v4.runtime.misc.ParseCancellationException;
 import org.antlr.v4.runtime.tree.*;
 import org.jetbrains.annotations.NotNull;
 
@@ -56,21 +58,9 @@ public abstract class ANTLRParserAdaptor implements PsiParser {
 
         // Phase 1: Parse with ANTLR independently to get the parse tree structure.
         String text = builder.getOriginalText().toString();
-        CharStream charStream = CharStreams.fromString(text);
 
-        // Create a fresh lexer for ANTLR parsing
-        Lexer antlrLexer = createANTLRLexer(charStream);
-        CommonTokenStream tokenStream = new CommonTokenStream(antlrLexer);
-
-        // Create a fresh parser
-        Parser antlrParser = createANTLRParser(tokenStream);
-        antlrParser.removeErrorListeners();
-
-        ParseTree parseTree;
-        try {
-            parseTree = parse(antlrParser, root);
-        } catch (Exception e) {
-            // On failure, consume everything flat
+        ParseTree parseTree = runAntlrParse(text, root);
+        if (parseTree == null) {
             while (!builder.eof()) {
                 builder.advanceLexer();
             }
@@ -89,6 +79,38 @@ public abstract class ANTLRParserAdaptor implements PsiParser {
 
         rootMarker.done(root);
         return builder.getTreeBuilt();
+    }
+
+    /**
+     * Run the ANTLR parse. Attempts SLL prediction mode first (much faster, cheap closure)
+     * and falls back to full LL prediction on ambiguity. Returns null if both modes fail.
+     */
+    private ParseTree runAntlrParse(String text, IElementType root) {
+        try {
+            return doParse(text, root, PredictionMode.SLL, true);
+        } catch (ParseCancellationException ignored) {
+            // SLL couldn't decide — retry with full LL on a fresh lexer/parser.
+            try {
+                return doParse(text, root, PredictionMode.LL, false);
+            } catch (Exception ignored2) {
+                return null;
+            }
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private ParseTree doParse(String text, IElementType root, PredictionMode mode, boolean bailOnError) {
+        CharStream charStream = CharStreams.fromString(text);
+        Lexer antlrLexer = createANTLRLexer(charStream);
+        CommonTokenStream tokenStream = new CommonTokenStream(antlrLexer);
+        Parser antlrParser = createANTLRParser(tokenStream);
+        antlrParser.removeErrorListeners();
+        antlrParser.getInterpreter().setPredictionMode(mode);
+        if (bailOnError) {
+            antlrParser.setErrorHandler(new BailErrorStrategy());
+        }
+        return parse(antlrParser, root);
     }
 
     /**
