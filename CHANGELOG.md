@@ -1,6 +1,19 @@
 # Changelog
 
 ## [Unreleased]
+
+## [0.5.7]
+### Fixed
+- Typing lag on large files: ANTLR parser now attempts SLL prediction first and falls back to full LL only on ambiguity, cutting per-keystroke parse time on expression-heavy files so the EDT is no longer blocked waiting for the read lock to release
+- Diagnostics becoming stuck (red never appearing after an edit, or stale red never clearing after a fix): the debounced typecheck now schedules a daemon restart after the quiet period, so a pass reliably resumes once you stop typing
+- Typecheck cache invalidated by unrelated save / VFS churn: cache is keyed by document content hash instead of `Document.modificationStamp`, which resets on save and used to flicker annotations or pin stale errors
+- Daemon "highlighting copy" passes bypassing the cache: resolved the editor's real document via `PsiFile.originalFile` so copy and original share one cache entry
+- Hover type info going blank when the file has a typecheck error: the type cache is now replaced only when quint returns type data, preserving the last known-good types across transient errors
+
+### Changed
+- Snapshot temp file (`.quint-idea-*.qnt.tmp`) no longer written into the user's source directory. A mirror of the source dir is maintained under `PathManager.getTempPath()` with sibling `.qnt` files hard-linked in, keeping the repo free of transient files and `git status` clean
+
+## [0.5.6]
 ### Fixed
 - Debounced external typechecking while typing so editor diagnostics wait for a short idle period instead of re-running on every keystroke
 
