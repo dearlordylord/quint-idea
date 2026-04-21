@@ -5,6 +5,7 @@ import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import java.io.File
 
 /**
  * Tests for the QuintExternalAnnotator + QuintTypecheckSchedulingService pair.
@@ -240,6 +241,54 @@ class QuintTypecheckSchedulingTest : BasePlatformTestCase() {
         assertEquals(1, scheduled.size)
         assertEquals(myFixture.file.virtualFile.path, scheduled[0].first)
         assertEquals(800L, scheduled[0].second)
+    }
+
+    fun testTypecheckWorkspaceLivesOutsideUserRepo() {
+        // The temp file used to live in the user's source dir (visible to git status,
+        // ls -la, etc.). It now lives under the system tmp dir.
+        val sourceDir = createTempDir("quint-test-src-")
+        val battle = File(sourceDir, "battle.qnt").apply { writeText("module battle { val x = 1 }") }
+        val helpers = File(sourceDir, "helpers.qnt").apply { writeText("module helpers { val y = 2 }") }
+
+        val seen = mutableListOf<String>()
+        QuintExternalAnnotator.toolRunnerFactory = {
+            object : QuintToolRunner {
+                override fun typecheck(filePath: String): QuintTypecheckResult {
+                    seen.add(filePath)
+                    return resultWithError("oops")
+                }
+            }
+        }
+
+        val vfile = com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByIoFile(battle)!!
+        val psi = com.intellij.psi.PsiManager.getInstance(project).findFile(vfile)!!
+
+        val annotator = QuintExternalAnnotator()
+        val input = annotator.collectInformation(psi)!!
+        annotator.doAnnotate(input)
+
+        assertEquals("typecheck should be invoked once", 1, seen.size)
+        val invokedPath = File(seen.single())
+        assertFalse(
+            "the path quint sees must NOT live inside the user's source directory; got $invokedPath",
+            invokedPath.canonicalPath.startsWith(sourceDir.canonicalPath)
+        )
+        assertEquals(
+            "the workspace mirror must use the same file name so quint can resolve relative imports",
+            "battle.qnt", invokedPath.name
+        )
+        assertTrue(
+            "sibling .qnt files must be mirrored next to the snapshot for relative imports",
+            File(invokedPath.parentFile, "helpers.qnt").exists()
+        )
+        assertFalse(
+            "no temp file should be left in the user's source dir",
+            sourceDir.listFiles { f -> f.name.startsWith(".quint-idea-") }?.any() ?: false
+        )
+
+        // cleanup
+        sourceDir.deleteRecursively()
+        File(invokedPath.parent).deleteRecursively()
     }
 
     fun testNewContentTriggersFreshTypecheckEvenAfterPriorOne() {

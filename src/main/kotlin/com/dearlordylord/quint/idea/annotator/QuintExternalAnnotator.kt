@@ -12,6 +12,8 @@ import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiFile
 import java.io.File
 import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.concurrent.ConcurrentHashMap
 
 data class QuintAnnotatorInput(
@@ -88,39 +90,64 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintAnnot
             return echo?.let { QuintAnnotationResult(collectedInfo.contentHash, it) }
         }
 
-        // Snapshot-to-temp-file approach. Guarantees quint typechecks the EXACT content
-        // collectInformation snapshotted, so the cache key matches what quint saw.
-        // Temp file lives in the original parent dir so relative imports resolve.
-        // Suffix is ".tmp" so IntelliJ doesn't index it as Quint (quint CLI accepts
-        // any extension — verified from quint source).
+        // Snapshot the document into a private workspace under the system tmp dir,
+        // copy the sibling .qnt files alongside so quint can resolve relative imports,
+        // and run quint there. Nothing is written into the user's repo.
         val originalFile = File(path)
         val parentDir = originalFile.parentFile?.takeIf { it.exists() && it.isDirectory }
 
-        var tempFile: File? = null
         val pathForQuint: String
+        var workspaceRoot: File? = null
         return try {
             if (parentDir != null) {
-                tempFile = File.createTempFile(".quint-idea-", "-${originalFile.name}.tmp", parentDir)
-                tempFile.deleteOnExit()
-                tempFile.writeText(collectedInfo.documentText, StandardCharsets.UTF_8)
-                pathForQuint = tempFile.canonicalPath
+                workspaceRoot = mirrorWorkspace(parentDir, originalFile.name, collectedInfo.documentText)
+                pathForQuint = File(workspaceRoot, originalFile.name).canonicalPath
             } else {
-                // Test fixtures use a virtual FS; the test toolRunner is mocked and
-                // doesn't actually read disk. Pass the original path through.
+                // Test fixtures use a virtual FS; the mocked toolRunner doesn't read disk.
                 pathForQuint = path
             }
             LOG.info("doAnnotate $path: invoking typecheck on $pathForQuint")
             val raw = collectedInfo.toolRunner.typecheck(pathForQuint)
-            val result = if (tempFile != null) remapSource(raw, pathForQuint, path) else raw
+            val result = if (workspaceRoot != null) remapAllSources(raw, workspaceRoot.canonicalPath, parentDir!!.canonicalPath) else raw
             LOG.info("doAnnotate $path: result errors=${result.errors.size} warnings=${result.warnings.size}")
             resultCache[path] = CachedTypecheckResult(collectedInfo.contentHash, result)
             QuintAnnotationResult(collectedInfo.contentHash, result)
         } catch (e: Exception) {
             LOG.warn("doAnnotate $path: typecheck failed: ${e.message}", e)
             null
-        } finally {
-            tempFile?.delete()
         }
+    }
+
+    /**
+     * Build / refresh a private mirror of `sourceDir` under the system tmp dir, then
+     * write `targetText` as the snapshot for `targetName`. Sibling .qnt files are hard-
+     * linked when possible, copied otherwise. Mirror lives across calls so we only
+     * re-link files that changed since the last typecheck.
+     */
+    private fun mirrorWorkspace(sourceDir: File, targetName: String, targetText: String): File {
+        val workspace = File(
+            System.getProperty("java.io.tmpdir"),
+            "quint-idea-${Integer.toHexString(sourceDir.canonicalPath.hashCode())}"
+        )
+        workspace.mkdirs()
+
+        sourceDir.listFiles { f -> f.isFile && f.extension == "qnt" && f.name != targetName }?.forEach { sibling ->
+            val mirror = File(workspace, sibling.name)
+            if (mirror.exists() && mirror.lastModified() >= sibling.lastModified()) return@forEach
+            mirror.delete()
+            try {
+                Files.createLink(mirror.toPath(), sibling.toPath())
+            } catch (_: Exception) {
+                Files.copy(sibling.toPath(), mirror.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+        }
+
+        // Always replace the target with our snapshot. Delete any leftover hard-link
+        // (would be the original on-disk content) before writing.
+        val target = File(workspace, targetName)
+        target.delete()
+        target.writeText(targetText, StandardCharsets.UTF_8)
+        return workspace
     }
 
     override fun apply(file: PsiFile, annotationResult: QuintAnnotationResult?, holder: AnnotationHolder) {
@@ -211,11 +238,12 @@ private data class CachedTypecheckResult(
     val result: QuintTypecheckResult
 )
 
-private fun remapSource(result: QuintTypecheckResult, from: String, to: String): QuintTypecheckResult {
+/** Remap any source path under `fromDir` to the equivalent path under `toDir`. */
+private fun remapAllSources(result: QuintTypecheckResult, fromDir: String, toDir: String): QuintTypecheckResult {
+    fun remapPath(p: String): String =
+        if (p.startsWith(fromDir)) toDir + p.substring(fromDir.length) else p
     fun List<QuintError>.remap() = map { error ->
-        error.copy(locs = error.locs.map { loc ->
-            if (loc.source == from) loc.copy(source = to) else loc
-        })
+        error.copy(locs = error.locs.map { loc -> loc.copy(source = remapPath(loc.source)) })
     }
     return result.copy(
         errors = result.errors.remap(),
