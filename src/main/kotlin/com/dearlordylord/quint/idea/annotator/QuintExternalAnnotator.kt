@@ -4,12 +4,15 @@ import com.dearlordylord.quint.idea.settings.QuintSettingsState
 import com.intellij.lang.annotation.AnnotationHolder
 import com.intellij.lang.annotation.ExternalAnnotator
 import com.intellij.lang.annotation.HighlightSeverity
+import com.intellij.openapi.application.PathManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.util.TextRange
+import com.intellij.openapi.util.io.FileUtil
 import com.intellij.psi.PsiFile
+import org.jetbrains.annotations.TestOnly
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
@@ -22,21 +25,19 @@ data class QuintAnnotatorInput(
     val contentHash: Int,
     val cachedResult: QuintTypecheckResult?,
     val skipTypecheck: Boolean,
-    val toolRunner: QuintToolRunner
+    val toolRunner: QuintToolRunner?
 )
 
-data class QuintAnnotationResult(
-    val contentHash: Int,
-    val typecheckResult: QuintTypecheckResult
-)
+data class QuintAnnotationResult(val typecheckResult: QuintTypecheckResult)
 
 class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintAnnotationResult>() {
     companion object {
         private val LOG = Logger.getInstance(QuintExternalAnnotator::class.java)
         private val resultCache = ConcurrentHashMap<String, CachedTypecheckResult>()
 
-        @Volatile var toolRunnerFactory: (() -> QuintToolRunner)? = null
+        @TestOnly @Volatile var toolRunnerFactory: (() -> QuintToolRunner)? = null
 
+        @TestOnly
         internal fun clearCacheForTests() {
             resultCache.clear()
         }
@@ -59,8 +60,7 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintAnnot
         val contentHash = documentText.hashCode()
         val cached = resultCache[path]
         val cacheHit = cached?.contentHash == contentHash
-        val deferring = QuintTypecheckSchedulingService.getInstance().shouldDefer(document)
-        val skipTypecheck = deferring || cacheHit
+        val skipTypecheck = cacheHit || QuintTypecheckSchedulingService.getInstance().shouldDefer(document)
 
         return QuintAnnotatorInput(
             filePath = path,
@@ -68,7 +68,7 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintAnnot
             contentHash = contentHash,
             cachedResult = if (cacheHit) cached?.result else null,
             skipTypecheck = skipTypecheck,
-            toolRunner = if (skipTypecheck) DummyToolRunner else toolRunnerFactory?.invoke() ?: QuintCliToolRunner()
+            toolRunner = if (skipTypecheck) null else (toolRunnerFactory?.invoke() ?: QuintCliToolRunner())
         )
     }
 
@@ -77,21 +77,21 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintAnnot
         val path = collectedInfo.filePath
 
         if (collectedInfo.skipTypecheck) {
-            return collectedInfo.cachedResult?.let {
-                QuintAnnotationResult(collectedInfo.contentHash, it)
-            }
+            return collectedInfo.cachedResult?.let { QuintAnnotationResult(it) }
         }
 
+        val runner = collectedInfo.toolRunner ?: return null
         val originalFile = File(path)
         val parentDir = originalFile.parentFile ?: return null
 
         return try {
             val workspaceRoot = mirrorWorkspace(parentDir, originalFile.name, collectedInfo.documentText)
+            val workspacePath = workspaceRoot.canonicalPath
             val pathForQuint = File(workspaceRoot, originalFile.name).canonicalPath
-            val raw = collectedInfo.toolRunner.typecheck(pathForQuint)
-            val result = remapAllSources(raw, workspaceRoot.canonicalPath, parentDir.canonicalPath)
+            val raw = runner.typecheck(pathForQuint)
+            val result = remapAllSources(raw, workspacePath, parentDir.canonicalPath)
             resultCache[path] = CachedTypecheckResult(collectedInfo.contentHash, result)
-            QuintAnnotationResult(collectedInfo.contentHash, result)
+            QuintAnnotationResult(result)
         } catch (e: Exception) {
             LOG.warn("Quint typecheck failed for $path: ${e.message}", e)
             null
@@ -104,9 +104,11 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintAnnot
      * the snapshot for [targetName]. Keeps nothing in the user's source dir.
      */
     private fun mirrorWorkspace(sourceDir: File, targetName: String, targetText: String): File {
+        // PathManager.getTempPath is the plugin-sanctioned temp location; FileUtil.pathHashCode
+        // normalizes case on case-insensitive filesystems so two paths to the same dir map here.
         val workspace = File(
-            System.getProperty("java.io.tmpdir"),
-            "quint-idea-${Integer.toHexString(sourceDir.canonicalPath.hashCode())}"
+            PathManager.getTempPath(),
+            "quint-idea-${Integer.toHexString(FileUtil.pathHashCode(sourceDir.canonicalPath))}"
         )
         workspace.mkdirs()
 
@@ -199,12 +201,6 @@ private data class CachedTypecheckResult(
     val contentHash: Int,
     val result: QuintTypecheckResult
 )
-
-/** No-op runner used when we'll skip typecheck anyway — avoids allocating a real one on cache hits. */
-private object DummyToolRunner : QuintToolRunner {
-    override fun typecheck(filePath: String): QuintTypecheckResult =
-        QuintTypecheckResult(stage = "skipped", errors = emptyList(), warnings = emptyList())
-}
 
 /** Remap source paths from a mirror dir back to the user's original directory. */
 private fun remapAllSources(result: QuintTypecheckResult, fromDir: String, toDir: String): QuintTypecheckResult {

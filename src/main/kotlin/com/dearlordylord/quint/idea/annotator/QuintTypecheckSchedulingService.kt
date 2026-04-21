@@ -14,13 +14,14 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiManager
 import com.intellij.util.ui.update.MergingUpdateQueue
 import com.intellij.util.ui.update.Update
+import org.jetbrains.annotations.TestOnly
 
 class QuintTypecheckSchedulingService : Disposable {
     companion object {
         const val QUIET_PERIOD_MS = 750L
         private val LAST_EDIT_AT_KEY = Key.create<Long>("QUINT_LAST_EDIT_AT")
 
-        @Volatile
+        @TestOnly @Volatile
         var nowProvider: () -> Long = System::currentTimeMillis
 
         fun getInstance(): QuintTypecheckSchedulingService =

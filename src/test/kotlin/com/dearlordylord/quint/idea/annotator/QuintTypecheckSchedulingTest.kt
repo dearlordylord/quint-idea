@@ -71,23 +71,25 @@ class QuintTypecheckSchedulingTest : BasePlatformTestCase() {
         }
     }
 
+    private fun markEditedAt(t: Long) {
+        QuintTypecheckSchedulingService.nowProvider = { t }
+        QuintTypecheckSchedulingService.getInstance().markEdited(myFixture.editor.document)
+    }
+
     fun testDefersWhileTyping() {
         myFixture.configureByText("a.qnt", "module a { val x = 1 }")
-        QuintTypecheckSchedulingService.nowProvider = { 100L }
-        QuintTypecheckSchedulingService.getInstance().markEdited(myFixture.editor.document)
+        markEditedAt(100L)
 
         val annotator = QuintExternalAnnotator()
-        val input = annotator.collectInformation(myFixture.file)
-        assertNotNull(input)
-        assertTrue(input!!.skipTypecheck)
+        val input = annotator.collectInformation(myFixture.file)!!
+        assertTrue(input.skipTypecheck)
         assertNull(annotator.doAnnotate(input))
         assertEquals(0, invocations.size)
     }
 
     fun testDoesNotDeferAfterQuietPeriod() {
         myFixture.configureByText("a.qnt", "module a { val x = 1 }")
-        QuintTypecheckSchedulingService.nowProvider = { 100L }
-        QuintTypecheckSchedulingService.getInstance().markEdited(myFixture.editor.document)
+        markEditedAt(100L)
         QuintTypecheckSchedulingService.nowProvider = { 100L + QuintTypecheckSchedulingService.QUIET_PERIOD_MS + 50 }
 
         val input = QuintExternalAnnotator().collectInformation(myFixture.file)!!
@@ -157,18 +159,13 @@ class QuintTypecheckSchedulingTest : BasePlatformTestCase() {
     }
 
     fun testInputSnapshotsDocumentTextAndHash() {
-        // collectInformation must capture the text NOW. If the user types before
-        // doAnnotate runs, we cache by the snapshot's hash — not the live document's.
+        // collectInformation must capture the text NOW, so doAnnotate feeds that exact
+        // snapshot to quint — not whatever the live document holds afterwards.
         myFixture.configureByText("a.qnt", "module a { val x = 1 }")
         val input = QuintExternalAnnotator().collectInformation(myFixture.file)!!
-        val snapshotText = input.documentText
-        val snapshotHash = input.contentHash
-
         edit("module a { val x = 999 }")
-
-        val result = QuintExternalAnnotator().doAnnotate(input)
-        assertEquals("module a { val x = 1 }", snapshotText)
-        assertEquals(snapshotHash, result?.contentHash)
+        assertEquals("module a { val x = 1 }", input.documentText)
+        assertEquals("module a { val x = 1 }".hashCode(), input.contentHash)
     }
 
     fun testNewContentTriggersFreshTypecheckEvenAfterPriorOne() {
