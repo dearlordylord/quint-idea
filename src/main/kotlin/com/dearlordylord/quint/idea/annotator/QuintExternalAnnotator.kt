@@ -49,12 +49,7 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintAnnot
     override fun collectInformation(file: PsiFile): QuintAnnotatorInput? {
         if (QuintSettingsState.getInstance().resolveQuintPath() == null) return null
 
-        // Daemon often hands us a non-physical "highlighting copy" whose document is
-        // a fresh in-memory snapshot with modStamp=0. Always use the editor's real
-        // document via the original file's VirtualFile.
-        val virtualFile = file.originalFile.virtualFile ?: file.virtualFile ?: return null
-        val document = FileDocumentManager.getInstance().getDocument(virtualFile) ?: return null
-
+        val (virtualFile, document) = resolveEditorDocument(file) ?: return null
         val path = virtualFile.path
         val documentText = document.charsSequence.toString()
         val contentHash = documentText.hashCode()
@@ -99,6 +94,17 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintAnnot
     }
 
     /**
+     * Resolve the editor's real VirtualFile + Document. The daemon sometimes hands us a
+     * non-physical "highlighting copy" whose own document is a fresh snapshot with
+     * modStamp=0 — useless for caching. `originalFile.virtualFile` points at the real one.
+     */
+    private fun resolveEditorDocument(file: PsiFile): Pair<com.intellij.openapi.vfs.VirtualFile, Document>? {
+        val virtualFile = file.originalFile.virtualFile ?: file.virtualFile ?: return null
+        val document = FileDocumentManager.getInstance().getDocument(virtualFile) ?: return null
+        return virtualFile to document
+    }
+
+    /**
      * Hard-links (or copies) sibling .qnt files from [sourceDir] into a stable mirror
      * under the system tmp dir so relative imports resolve, then writes [targetText] as
      * the snapshot for [targetName]. Keeps nothing in the user's source dir.
@@ -131,9 +137,7 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintAnnot
 
     override fun apply(file: PsiFile, annotationResult: QuintAnnotationResult?, holder: AnnotationHolder) {
         if (annotationResult == null) return
-
-        val virtualFile = file.originalFile.virtualFile ?: file.virtualFile ?: return
-        val document = FileDocumentManager.getInstance().getDocument(virtualFile) ?: return
+        val (virtualFile, document) = resolveEditorDocument(file) ?: return
 
         val result = annotationResult.typecheckResult
         for (error in result.errors) {
