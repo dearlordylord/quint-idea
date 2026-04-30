@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.5.8]
+### Changed
+- Refactored language-support internals to centralize Quint vocabulary, PSI shape, name resolution, type lookup, typecheck execution, record-field workflows, and parser token naming without changing user-facing behavior
+
 ## [0.5.7]
 ### Fixed
 - Typing lag on large files: ANTLR parser now attempts SLL prediction first and falls back to full LL only on ambiguity, cutting per-keystroke parse time on expression-heavy files so the EDT is no longer blocked waiting for the read lock to release
