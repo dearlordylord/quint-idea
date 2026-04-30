@@ -4,20 +4,14 @@ import com.dearlordylord.quint.idea.settings.QuintSettingsState
 import com.intellij.lang.annotation.AnnotationHolder
 import com.intellij.lang.annotation.ExternalAnnotator
 import com.intellij.lang.annotation.HighlightSeverity
-import com.intellij.openapi.application.PathManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.util.TextRange
-import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiFile
 import org.jetbrains.annotations.TestOnly
-import java.io.File
-import java.nio.charset.StandardCharsets
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 import java.util.concurrent.ConcurrentHashMap
 
 data class QuintAnnotatorInput(
@@ -77,15 +71,10 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintAnnot
         }
 
         val runner = collectedInfo.toolRunner ?: return null
-        val originalFile = File(path)
-        val parentDir = originalFile.parentFile ?: return null
 
         return try {
-            val workspaceRoot = mirrorWorkspace(parentDir, originalFile.name, collectedInfo.documentText)
-            val workspacePath = workspaceRoot.canonicalPath
-            val pathForQuint = File(workspaceRoot, originalFile.name).canonicalPath
-            val raw = runner.typecheck(pathForQuint)
-            val result = remapAllSources(raw, workspacePath, parentDir.canonicalPath)
+            val snapshot = QuintFileSnapshot(path, collectedInfo.documentText)
+            val result = QuintTypecheckExecutor(runner).typecheck(snapshot) ?: return null
             resultCache[path] = CachedTypecheckResult(collectedInfo.contentHash, result)
             QuintAnnotationResult(result)
         } catch (e: Exception) {
@@ -103,37 +92,6 @@ class QuintExternalAnnotator : ExternalAnnotator<QuintAnnotatorInput, QuintAnnot
         val virtualFile = file.originalFile.virtualFile ?: file.virtualFile ?: return null
         val document = FileDocumentManager.getInstance().getDocument(virtualFile) ?: return null
         return virtualFile to document
-    }
-
-    /**
-     * Hard-links (or copies) sibling .qnt files from [sourceDir] into a stable mirror
-     * under the system tmp dir so relative imports resolve, then writes [targetText] as
-     * the snapshot for [targetName]. Keeps nothing in the user's source dir.
-     */
-    private fun mirrorWorkspace(sourceDir: File, targetName: String, targetText: String): File {
-        // PathManager.getTempPath is the plugin-sanctioned temp location; FileUtil.pathHashCode
-        // normalizes case on case-insensitive filesystems so two paths to the same dir map here.
-        val workspace = File(
-            PathManager.getTempPath(),
-            "quint-idea-${Integer.toHexString(FileUtil.pathHashCode(sourceDir.canonicalPath))}"
-        )
-        workspace.mkdirs()
-
-        sourceDir.listFiles { f -> f.isFile && f.extension == "qnt" && f.name != targetName }?.forEach { sibling ->
-            val mirror = File(workspace, sibling.name)
-            if (mirror.exists() && mirror.lastModified() >= sibling.lastModified()) return@forEach
-            mirror.delete()
-            try {
-                Files.createLink(mirror.toPath(), sibling.toPath())
-            } catch (_: Exception) {
-                Files.copy(sibling.toPath(), mirror.toPath(), StandardCopyOption.REPLACE_EXISTING)
-            }
-        }
-
-        val target = File(workspace, targetName)
-        target.delete()
-        target.writeText(targetText, StandardCharsets.UTF_8)
-        return workspace
     }
 
     override fun apply(file: PsiFile, annotationResult: QuintAnnotationResult?, holder: AnnotationHolder) {
@@ -206,15 +164,3 @@ private data class CachedTypecheckResult(
     val contentHash: Int,
     val result: QuintTypecheckResult
 )
-
-/** Remap source paths from a mirror dir back to the user's original directory. */
-private fun remapAllSources(result: QuintTypecheckResult, fromDir: String, toDir: String): QuintTypecheckResult {
-    val fromPrefix = if (fromDir.endsWith(File.separator)) fromDir else fromDir + File.separator
-    val toPrefix = if (toDir.endsWith(File.separator)) toDir else toDir + File.separator
-    fun remapPath(p: String): String =
-        if (p.startsWith(fromPrefix)) toPrefix + p.substring(fromPrefix.length) else p
-    fun List<QuintError>.remap() = map { error ->
-        error.copy(locs = error.locs.map { loc -> loc.copy(source = remapPath(loc.source)) })
-    }
-    return result.copy(errors = result.errors.remap(), warnings = result.warnings.remap())
-}

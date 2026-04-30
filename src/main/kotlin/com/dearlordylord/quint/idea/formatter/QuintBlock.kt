@@ -1,7 +1,6 @@
 package com.dearlordylord.quint.idea.formatter
 
-import com.dearlordylord.quint.idea.parser.QuintLexer
-import com.dearlordylord.quint.idea.parser.QuintParserDefinition
+import com.dearlordylord.quint.idea.parser.QuintParserTokenTypes
 import com.intellij.formatting.*
 import com.intellij.lang.ASTNode
 import com.intellij.psi.TokenType
@@ -17,14 +16,14 @@ class QuintBlock(
 ) : AbstractBlock(node, wrap, alignment) {
 
     companion object {
-        val LBRACE: IElementType = QuintParserDefinition.TOKEN_ELEMENT_TYPES[QuintLexer.T__1]   // {
-        val RBRACE: IElementType = QuintParserDefinition.TOKEN_ELEMENT_TYPES[QuintLexer.T__2]   // }
-        val LBRACKET: IElementType = QuintParserDefinition.TOKEN_ELEMENT_TYPES[QuintLexer.T__12] // [
-        val RBRACKET: IElementType = QuintParserDefinition.TOKEN_ELEMENT_TYPES[QuintLexer.T__13] // ]
-        val LPAREN: IElementType = QuintParserDefinition.TOKEN_ELEMENT_TYPES[QuintLexer.LPAREN]
-        val RPAREN: IElementType = QuintParserDefinition.TOKEN_ELEMENT_TYPES[QuintLexer.RPAREN]
+        val LBRACE: IElementType = QuintParserTokenTypes.LBRACE
+        val RBRACE: IElementType = QuintParserTokenTypes.RBRACE
+        val LBRACKET: IElementType = QuintParserTokenTypes.LBRACKET
+        val RBRACKET: IElementType = QuintParserTokenTypes.RBRACKET
+        val LPAREN: IElementType = QuintParserTokenTypes.LPAREN
+        val RPAREN: IElementType = QuintParserTokenTypes.RPAREN
 
-        private val DELIMITERS = setOf(LBRACE, RBRACE, LBRACKET, RBRACKET, LPAREN, RPAREN)
+        private val DELIMITERS = QuintParserTokenTypes.DELIMITERS
     }
 
     override fun buildChildren(): List<Block> {

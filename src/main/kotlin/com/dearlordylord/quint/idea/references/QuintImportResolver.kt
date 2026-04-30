@@ -1,6 +1,7 @@
 package com.dearlordylord.quint.idea.references
 
 import com.dearlordylord.quint.idea.parser.QuintParser
+import com.dearlordylord.quint.idea.psi.QuintPsiShape
 import com.dearlordylord.quint.idea.psi.QuintPsiUtils
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
@@ -37,7 +38,7 @@ object QuintImportResolver {
                 ImportInfo(moduleName, ImportKind.SPECIFIC, specificName = identOrStar.text, fromSource = fromSource)
             }
         } else {
-            val nameNodes = collectChildrenOfRule(importMod, QuintParser.RULE_name)
+            val nameNodes = QuintPsiShape.nameNodes(importMod)
             if (nameNodes.isEmpty()) return null
             val moduleName = nameNodes[0].text
 
@@ -74,17 +75,4 @@ object QuintImportResolver {
             .mapNotNull { extractImportInfo(it) }
     }
 
-    // Non-recursive: collects only direct children, unlike QuintPsiUtils.findChildrenOfRule
-    private fun collectChildrenOfRule(parent: PsiElement, ruleIndex: Int): List<PsiElement> {
-        val result = mutableListOf<PsiElement>()
-        var child = parent.firstChild
-        while (child != null) {
-            val childType = child.node?.elementType as? RuleIElementType
-            if (childType != null && childType.ruleIndex == ruleIndex) {
-                result.add(child)
-            }
-            child = child.nextSibling
-        }
-        return result
-    }
 }

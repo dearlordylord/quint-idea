@@ -1,9 +1,9 @@
 package com.dearlordylord.quint.idea.documentation
 
-import com.dearlordylord.quint.idea.annotator.QuintTypeCache
-import com.dearlordylord.quint.idea.completion.QuintCompletionContributor
+import com.dearlordylord.quint.idea.QuintVocabulary
+import com.dearlordylord.quint.idea.annotator.QuintTypeInfo
+import com.dearlordylord.quint.idea.annotator.QuintResolvedTypeInfo
 import com.dearlordylord.quint.idea.psi.QuintNamedElement
-import com.dearlordylord.quint.idea.psi.QuintPsiUtils
 import com.intellij.lang.documentation.AbstractDocumentationProvider
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.psi.PsiElement
@@ -30,42 +30,7 @@ class QuintDocumentationProvider : AbstractDocumentationProvider() {
             }
         } ?: return resolveBuiltinInfo(element)
 
-        val declName = declaration.name ?: return null
-        val qualifier = getQualifier(declaration)
-
-        // For annotatedParameter nodes, read the type annotation directly from the PSI
-        val annotationType = getAnnotatedParameterType(declaration)
-        if (annotationType != null) {
-            return TypeInfo(declName, qualifier, annotationType)
-        }
-
-        val moduleName = findModuleName(declaration) ?: return null
-
-        // Look up the type in the cache — try the declaration's file first,
-        // then the hover site's file (cross-file imports store types on the importing file)
-        val declFile = declaration.containingFile?.virtualFile
-        val hoverFile = element.containingFile?.virtualFile
-
-        val typeStr = (declFile?.let { QuintTypeCache.getFormattedType(it, moduleName, declName) })
-            ?: (hoverFile?.takeIf { it != declFile }?.let { QuintTypeCache.getFormattedType(it, moduleName, declName) })
-            ?: return null
-
-        return TypeInfo(declName, qualifier, typeStr)
-    }
-
-    private fun findModuleName(element: PsiElement): String? {
-        val module = QuintPsiUtils.getContainingModule(element) ?: return null
-        return QuintPsiUtils.getDeclarationName(module)
-    }
-
-    private fun getQualifier(declaration: QuintNamedElement): String? {
-        val parent = declaration.parent ?: return null
-        return QuintPsiUtils.getDeclarationQualifier(parent)
-            ?: QuintPsiUtils.getDeclarationQualifier(declaration)
-    }
-
-    private fun getAnnotatedParameterType(declaration: QuintNamedElement): String? {
-        return QuintPsiUtils.getAnnotatedParameterTypeNode(declaration)?.text
+        return QuintTypeInfo.formattedTypeFor(declaration, element)?.toLocalTypeInfo()
     }
 
     private fun buildHtml(info: TypeInfo): String {
@@ -77,11 +42,13 @@ class QuintDocumentationProvider : AbstractDocumentationProvider() {
 
     private fun resolveBuiltinInfo(element: PsiElement): TypeInfo? {
         val name = element.text ?: return null
-        val info = QuintCompletionContributor.BUILTIN_OPERATORS[name]
-            ?: QuintCompletionContributor.BUILTIN_VALUES[name]
+        val info = QuintVocabulary.builtinInfo(name)
             ?: return null
         return TypeInfo(name, info.category, info.signature)
     }
+
+    private fun QuintResolvedTypeInfo.toLocalTypeInfo(): TypeInfo =
+        TypeInfo(name, qualifier, typeString)
 
     private data class TypeInfo(
         val name: String,

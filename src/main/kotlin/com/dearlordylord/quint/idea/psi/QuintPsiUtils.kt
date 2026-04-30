@@ -159,58 +159,21 @@ object QuintPsiUtils {
      * Find children of a given rule type (with recursive search up to maxDepth).
      */
     fun findChildrenOfRule(parent: PsiElement, ruleIndex: Int): List<PsiElement> {
-        val result = mutableListOf<PsiElement>()
-        findChildrenOfRuleRecursive(parent, ruleIndex, result, maxDepth = 5)
-        return result
-    }
-
-    private fun findChildrenOfRuleRecursive(
-        element: PsiElement,
-        ruleIndex: Int,
-        result: MutableList<PsiElement>,
-        maxDepth: Int
-    ) {
-        if (maxDepth <= 0) return
-        var child = element.firstChild
-        while (child != null) {
-            val childType = child.node?.elementType
-            if (childType is RuleIElementType && childType.ruleIndex == ruleIndex) {
-                result.add(child)
-            } else {
-                findChildrenOfRuleRecursive(child, ruleIndex, result, maxDepth - 1)
-            }
-            child = child.nextSibling
-        }
+        return QuintPsiShape.descendantsOfRule(parent, ruleIndex)
     }
 
     /**
      * Find the first direct child matching a given rule type.
      */
     fun findFirstChildOfRule(parent: PsiElement, ruleIndex: Int): PsiElement? {
-        var child = parent.firstChild
-        while (child != null) {
-            val childType = child.node?.elementType
-            if (childType is RuleIElementType && childType.ruleIndex == ruleIndex) {
-                return child
-            }
-            child = child.nextSibling
-        }
-        return null
+        return QuintPsiShape.firstDirectChildOfRule(parent, ruleIndex)
     }
 
     /**
      * Walk parents to find the enclosing module node.
      */
     fun getContainingModule(element: PsiElement): PsiElement? {
-        var current = element.parent
-        while (current != null) {
-            val type = current.node?.elementType
-            if (type is RuleIElementType && type.ruleIndex == QuintParser.RULE_module) {
-                return current
-            }
-            current = current.parent
-        }
-        return null
+        return QuintPsiShape.enclosingRule(element, QuintParser.RULE_module, maxDepth = Int.MAX_VALUE)
     }
 
     /**
