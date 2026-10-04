@@ -163,4 +163,17 @@ class QuintImportScopeTest : BasePlatformTestCase() {
         assertTrue(resolved is QuintNamedElement)
         assertEquals("x", (resolved as PsiNamedElement).name)
     }
+    fun testSameFileModuleRequiresImportForQualifiedReference() {
+        myFixture.configureByText("test.qnt", "module A { pure val x = 1 } module B { pure val result = <caret>A::x }")
+        assertNull(resolveAtCaret())
+    }
+
+    fun testInstantiatedMemberRenameCanBeUndone() {
+        val text = "module Counter { const N: int pure val step = N } module Main { import Counter(N = 1) as C pure val result = C::step }"
+        myFixture.configureByText("test.qnt", text.replace("C::step", "<caret>C::step"))
+        myFixture.renameElementAtCaret("next")
+        myFixture.checkResult(text.replace("val step", "val next").replace("C::step", "C::next"))
+        myFixture.performEditorAction(com.intellij.openapi.actionSystem.IdeActions.ACTION_UNDO)
+        myFixture.checkResult(text)
+    }
 }

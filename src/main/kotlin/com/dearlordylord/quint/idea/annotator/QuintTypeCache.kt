@@ -9,12 +9,10 @@ import com.intellij.openapi.vfs.VirtualFile
  */
 object QuintTypeCache {
 
-    private val TYPE_DATA_KEY = Key.create<Map<DeclKey, QuintTypeScheme>>("QUINT_TYPE_DATA")
-
-    private val SNAPSHOT_KEY = Key.create<QuintAnalysisSnapshot>("QUINT_TYPE_SNAPSHOT")
+    private data class CachedTypes(val snapshot: QuintAnalysisSnapshot?, val declarations: Map<DeclKey, QuintTypeScheme>)
+    private val TYPE_DATA_KEY = Key.create<CachedTypes>("QUINT_TYPE_DATA")
 
     fun update(file: VirtualFile, result: QuintTypecheckResult, snapshot: QuintAnalysisSnapshot? = null) {
-        file.putUserData(SNAPSHOT_KEY, snapshot)
         val declTypes = mutableMapOf<DeclKey, QuintTypeScheme>()
 
         for (module in result.modules) {
@@ -33,17 +31,17 @@ object QuintTypeCache {
             }
         }
 
-        file.putUserData(TYPE_DATA_KEY, declTypes)
+        file.putUserData(TYPE_DATA_KEY, CachedTypes(snapshot, declTypes.toMap()))
     }
 
     fun getTypeScheme(file: VirtualFile, moduleName: String, declName: String): QuintTypeScheme? {
-        val snapshot = file.getUserData(SNAPSHOT_KEY)
+        val entry = file.getUserData(TYPE_DATA_KEY) ?: return null
+        val snapshot = entry.snapshot
         if (snapshot != null) {
             val text = com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().getDocument(file)?.text ?: return null
             if (!snapshot.isCurrent(text)) return null
         }
-        val data = file.getUserData(TYPE_DATA_KEY) ?: return null
-        return data[DeclKey(moduleName, declName)]
+        return entry.declarations[DeclKey(moduleName, declName)]
     }
 
     fun getFormattedType(file: VirtualFile, moduleName: String, declName: String): String? {

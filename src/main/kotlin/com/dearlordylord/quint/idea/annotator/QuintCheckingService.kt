@@ -44,15 +44,22 @@ class QuintCheckingService(private val project: Project) : Disposable {
         if (project.isDisposed || disposed) return
         // VFS/document events are immediate; polling also observes unregistered paths,
         // replacement of an external executable, and externally-created missing imports.
-        val changed = ReadAction.compute<List<String>, RuntimeException> {
-            val stamp = QuintAnalysisSnapshot.toolStamp(QuintSettingsState.getInstance().resolveQuintPath())
-            states.values.filter { entry ->
-                entry.status != QuintCheckingStatus.STALE && entry.file.isValid &&
-                    !entry.snapshot.isCurrent(FileDocumentManager.getInstance().getDocument(entry.file)?.text ?: "", stamp)
-            }.map { it.file.path }
+        try {
+            val changed = ReadAction.compute<List<String>, RuntimeException> {
+                val stamp = QuintAnalysisSnapshot.toolStamp(QuintSettingsState.getInstance().resolveQuintPath())
+                states.values.filter { entry ->
+                    entry.status != QuintCheckingStatus.STALE && entry.file.isValid &&
+                        !entry.snapshot.isCurrent(FileDocumentManager.getInstance().getDocument(entry.file)?.text ?: "", stamp)
+                }.map { it.file.path }
+            }
+            changed.forEach(::invalidate)
+        } catch (failure: java.io.IOException) {
+            com.intellij.openapi.diagnostic.Logger.getInstance(QuintCheckingService::class.java)
+                .warn("Could not observe Quint checking inputs", failure)
+            invalidate()
+        } finally {
+            if (!project.isDisposed && !disposed) externalChanges.addRequest({ pollExternalChanges() }, 2000)
         }
-        changed.forEach(::invalidate)
-        if (!project.isDisposed && !disposed) externalChanges.addRequest({ pollExternalChanges() }, 2000)
     }
 
     @Synchronized

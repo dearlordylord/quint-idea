@@ -14,7 +14,6 @@ class QuintRunSettingsEditor : SettingsEditor<QuintRunConfiguration>() {
     private val main = JTextField()
     private val init = JTextField()
     private val step = JTextField()
-    private val backend = JComboBox(arrayOf("typescript", "rust"))
     private val test = JTextField()
     private val samples = JSpinner(SpinnerNumberModel(100, 1, Int.MAX_VALUE, 1))
     private val steps = JSpinner(SpinnerNumberModel(20, 1, Int.MAX_VALUE, 1))
@@ -27,18 +26,17 @@ class QuintRunSettingsEditor : SettingsEditor<QuintRunConfiguration>() {
         .addLabeledComponent("Initializer (run):", init)
         .addLabeledComponent("Step action (run):", step)
         .addLabeledComponent("Test name (optional):", test)
-        .addLabeledComponent("Backend:", backend)
         .addLabeledComponent("Maximum samples:", samples)
         .addLabeledComponent("Maximum steps (run):", steps).panel
 
     override fun resetEditorFrom(config: QuintRunConfiguration) {
         source.text = config.sourcePath; mode.selectedItem = config.mode; main.text = config.mainModule
-        init.text = config.initAction; step.text = config.stepAction; backend.selectedItem = config.backend
+        init.text = config.initAction; step.text = config.stepAction
         test.text = config.testName; samples.value = config.maxSamples; steps.value = config.maxSteps
     }
     override fun applyEditorTo(config: QuintRunConfiguration) {
         config.sourcePath = source.text; config.mode = mode.selectedItem as QuintExecutionMode; config.mainModule = main.text
-        config.initAction = init.text; config.stepAction = step.text; config.backend = backend.selectedItem as String
+        config.initAction = init.text; config.stepAction = step.text
         config.testName = test.text; config.maxSamples = samples.value as Int; config.maxSteps = steps.value as Int
     }
 }

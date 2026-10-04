@@ -1,6 +1,5 @@
 package com.dearlordylord.quint.idea.references
 
-import com.dearlordylord.quint.idea.annotator.QuintFieldNode
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiReferenceBase
@@ -12,12 +11,11 @@ import com.intellij.psi.PsiReferenceBase
 class QuintRecordFieldReference(
     element: PsiElement,
     textRange: TextRange,
-    private val fieldName: String,
-    private val receiverFields: List<QuintFieldNode>
+    private val fieldName: String
 ) : PsiReferenceBase<PsiElement>(element, textRange) {
 
     override fun resolve(): PsiElement? {
-        return QuintRecordTypeResolver.findFieldDefinition(fieldName, receiverFields, element)
+        return QuintRecordTypeResolver.findFieldDefinition(fieldName, element)
     }
 
     override fun getVariants(): Array<Any> = emptyArray()

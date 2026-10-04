@@ -12,15 +12,6 @@ object QuintNameResolver {
 
         resolveInstanceParam(element, name)?.let { return it }
         QuintScopeResolver.findVisibleSymbols(element).firstOrNull { it.name == name }?.let { return it.declaration }
-        if ("::" in name) {
-            val file = element.containingFile ?: return null
-            for (module in QuintPsiUtils.findModules(file)) {
-                val prefix = QuintPsiUtils.getDeclarationName(module) ?: continue
-                if (name.startsWith("$prefix::")) {
-                    QuintScopeResolver.exportedSymbols(module).firstOrNull { it.name == name.removePrefix("$prefix::") }?.let { return it.declaration }
-                }
-            }
-        }
         return QuintRecordTypeResolver.resolveNameAfterDotField(element, name)
     }
 

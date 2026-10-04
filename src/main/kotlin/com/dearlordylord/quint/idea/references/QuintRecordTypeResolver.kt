@@ -19,9 +19,7 @@ object QuintRecordTypeResolver {
 
     data class FieldStringContext(
         val stringElement: PsiElement,
-        val fieldName: String,
-        val dotCall: PsiElement,
-        val receiverFields: List<QuintFieldNode>
+        val fieldName: String
     )
 
     /**
@@ -56,7 +54,7 @@ object QuintRecordTypeResolver {
 
         val fields = resolveRecordFieldsFromDotCall(dotCall) ?: return null
         if (fields.none { it.fieldName == fieldName }) return null
-        return findFieldDefinition(fieldName, fields, element)
+        return findFieldDefinition(fieldName, element)
     }
 
     fun fieldsForWithString(position: PsiElement): List<QuintFieldNode>? {
@@ -70,14 +68,13 @@ object QuintRecordTypeResolver {
         return QuintRecordFieldReference(
             context.stringElement,
             TextRange(1, context.stringElement.text.length - 1),
-            context.fieldName,
-            context.receiverFields
+            context.fieldName
         )
     }
 
     fun gotoTargetsForWithString(position: PsiElement): Array<PsiElement>? {
         val context = withFieldStringContext(position) ?: return null
-        val target = findFieldDefinition(context.fieldName, context.receiverFields, context.stringElement)
+        val target = findFieldDefinition(context.fieldName, context.stringElement)
             ?: return null
         return arrayOf(target)
     }
@@ -99,7 +96,7 @@ object QuintRecordTypeResolver {
         val dotCall = withDotCallForFirstStringArgument(stringElement) ?: return null
         val fields = resolveRecordFieldsFromDotCall(dotCall) ?: return null
         if (fields.none { it.fieldName == fieldName }) return null
-        return FieldStringContext(stringElement, fieldName, dotCall, fields)
+        return FieldStringContext(stringElement, fieldName)
     }
 
     private fun stringLiteralValue(element: PsiElement): String? {
@@ -124,7 +121,6 @@ object QuintRecordTypeResolver {
     /** Navigate only through the receiver annotation and its actual typedef references. */
     fun findFieldDefinition(
         fieldName: String,
-        receiverFields: List<QuintFieldNode>?,
         contextElement: PsiElement
     ): PsiElement? {
         val dotCall = findEnclosingDotCall(contextElement) ?: return null

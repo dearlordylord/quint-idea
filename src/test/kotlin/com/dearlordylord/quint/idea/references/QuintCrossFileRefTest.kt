@@ -35,7 +35,7 @@ class QuintCrossFileRefTest : BasePlatformTestCase() {
 
     fun testSameFileQualifiedStillWorks() {
         myFixture.configureByText("test.qnt",
-            "module A { val x = 1 }\nmodule B { val y = <caret>A::x }")
+            "module A { val x = 1 }\nmodule B { import A val y = <caret>A::x }")
         val resolved = resolveAtCaret()
         assertNotNull("Expected same-file qualified ref to still resolve", resolved)
         assertTrue("Expected QuintNamedElement", resolved is QuintNamedElement)

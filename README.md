@@ -53,7 +53,7 @@ Targets **IntelliJ IDEA Community Edition 2025.1**, verified with Plugin Verifie
 
 ### Execution
 
-- Native **Quint** run configurations for `quint test` and `quint run`, with module, initializer/step, backend and limits
+- Native **Quint** run configurations for `quint test` and `quint run`, with module, initializer/step and limits (TypeScript backend)
 - Gutter entry points for supported test declarations and modules with `init`/`step`
 - Standard Run console, exit status and Stop; project disposal terminates owned processes
 - Execution uses **saved files**. Save changes before running. This differs from typechecking, which captures unsaved documents.

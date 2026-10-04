@@ -190,5 +190,62 @@ class QuintRealCliTest : BasePlatformTestCase() {
         }
         val hidden = source("hidden.qnt", "module A { pure val x = 1 } module B { import A.* } module Main { import B.* pure val result = x }")
         assertTrue("ordinary imports must not be re-exported", check(hidden).errors.isNotEmpty())
+        val unimported = source("unimported.qnt", "module A { pure val x = 1 } module B { pure val result = A::x }")
+        assertTrue("same-file qualification still requires import", check(unimported).errors.isNotEmpty())
+    }
+    fun testRealChecksKeepCapturedTargetsAcrossRetargetingAndConcurrentRoots() {
+        val first = source("first.qnt", "module dep { pure val y = 1 }")
+        val second = source("second.qnt", "module dep { pure val y: int = true }")
+        val link = File(directory, "dep.qnt").toPath()
+        Files.createSymbolicLink(link, first.toPath())
+        val root = source("root.qnt", "module root { import dep.* from \"dep\" pure val x = y }")
+        val captured = QuintAnalysisSnapshot.capture(root.path, root.readText(), executable)
+        Files.delete(link)
+        Files.createSymbolicLink(link, second.toPath())
+        val otherRoot = source("other-root.qnt", "module other { import dep.* from \"dep\" pure val x = y }")
+        val changed = QuintAnalysisSnapshot.capture(otherRoot.path, otherRoot.readText(), executable)
+        val pool = java.util.concurrent.Executors.newFixedThreadPool(2)
+        try {
+            val valid = pool.submit<QuintTypecheckResult> { QuintTypecheckExecutor(QuintCliToolRunner(executable)).typecheck(captured) }
+            val invalid = pool.submit<QuintTypecheckResult> { QuintTypecheckExecutor(QuintCliToolRunner(executable)).typecheck(changed) }
+            assertTrue("retargeting cannot alter captured checking inputs", valid.get(30, java.util.concurrent.TimeUnit.SECONDS).errors.isEmpty())
+            assertTrue("overlapping roots cannot share mirror contents", invalid.get(30, java.util.concurrent.TimeUnit.SECONDS).errors.isNotEmpty())
+        } finally { pool.shutdownNow() }
+    }
+    fun testRealCliResultCannotPublishAfterDependencyEdit() {
+        val dependency = source("dep.qnt", "module dep { pure val y = 1 }")
+        val root = source("root.qnt", "module root { import dep.* from \"dep\" pure val x = y }")
+        val vf = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(root)!!
+        val psi = com.intellij.psi.PsiManager.getInstance(project).findFile(vf)!!
+        val ready = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val pool = java.util.concurrent.Executors.newSingleThreadExecutor()
+        val originalFactory = QuintExternalAnnotator.toolRunnerFactory
+        try {
+            QuintExternalAnnotator.toolRunnerFactory = {
+                object : QuintToolRunner {
+                    override fun typecheck(filePath: String): QuintTypecheckResult {
+                        val result = QuintCliToolRunner(executable).typecheck(filePath)
+                        ready.countDown()
+                        check(release.await(30, java.util.concurrent.TimeUnit.SECONDS))
+                        return result
+                    }
+                }
+            }
+            val annotator = QuintExternalAnnotator()
+            val input = annotator.collectForManualCheck(psi)!!
+            val result = pool.submit<QuintAnnotationResult?> { annotator.doAnnotate(input) }
+            assertTrue("real CLI must return before the controlled publication boundary", ready.await(30, java.util.concurrent.TimeUnit.SECONDS))
+            val depVf = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(dependency)!!
+            val document = FileDocumentManager.getInstance().getDocument(depVf)!!
+            WriteCommandAction.runWriteCommandAction(project) { document.setText("module dep { pure val y = 2 }") }
+            release.countDown()
+            assertNull("real results from obsolete inputs must not publish", result.get(30, java.util.concurrent.TimeUnit.SECONDS))
+            assertEquals(QuintCheckingStatus.STALE, QuintCheckingService.getInstance(project).state(vf)!!.status)
+        } finally {
+            release.countDown()
+            pool.shutdownNow()
+            QuintExternalAnnotator.toolRunnerFactory = originalFactory
+        }
     }
 }

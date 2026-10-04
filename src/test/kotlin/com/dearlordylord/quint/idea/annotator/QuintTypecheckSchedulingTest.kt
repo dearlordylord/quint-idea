@@ -355,5 +355,56 @@ class QuintTypecheckSchedulingTest : BasePlatformTestCase() {
             sourceDir.deleteRecursively()
         }
     }
+    fun testExecutableReplacementRejectsInFlightResultAndInvalidatesCache() {
+        val executable = Files.createTempFile("quint-toolchain-", ".sh").toFile()
+        try {
+            executable.writeText("#!/bin/sh\nexit 0\n")
+            assertTrue(executable.setExecutable(true))
+            QuintSettingsState.getInstance().quintBinaryPath = executable.path
+            myFixture.configureByText("a.qnt", "module a { val x = 1 }")
+            assertNotNull(runPass())
+            val annotator = QuintExternalAnnotator()
+            val input = annotator.collectForManualCheck(myFixture.file)!!
+            executable.writeText("#!/bin/sh\nexit 1\n")
+            assertNull("a result belongs to the captured executable", annotator.doAnnotate(input))
+            assertEquals(QuintCheckingStatus.STALE, QuintCheckingService.getInstance(project).state(myFixture.file.virtualFile)!!.status)
+            assertFalse(annotator.collectInformation(myFixture.file)!!.skipTypecheck)
+        } finally { executable.delete() }
+    }
+
+    fun testImportSymlinkRetargetingRejectsInFlightResult() {
+        val directory = Files.createTempDirectory("quint-import-target-").toFile()
+        try {
+            val first = File(directory, "first.qnt").apply { writeText("module dep { val y = 1 }") }
+            val second = File(directory, "second.qnt").apply { writeText(first.readText()) }
+            val imported = File(directory, "dep.qnt").toPath()
+            Files.createSymbolicLink(imported, first.toPath())
+            val root = File(directory, "root.qnt").apply { writeText("module root { import dep.* from \"dep\" val x = y }") }
+            val virtualFile = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(root)!!
+            val psi = PsiManager.getInstance(project).findFile(virtualFile)!!
+            val annotator = QuintExternalAnnotator()
+            val input = annotator.collectForManualCheck(psi)!!
+            Files.delete(imported)
+            Files.createSymbolicLink(imported, second.toPath())
+            assertNull("equal contents cannot hide a changed import identity", annotator.doAnnotate(input))
+            assertEquals(QuintCheckingStatus.STALE, QuintCheckingService.getInstance(project).state(virtualFile)!!.status)
+        } finally { directory.deleteRecursively() }
+    }
+    fun testInferredHoverDoesNotPresentDependencyStaleTypes() {
+        val dependency = myFixture.addFileToProject("dep.qnt", "module dep { pure val y = 1 }")
+        myFixture.configureByText("root.qnt", "module root { import dep.* from \"dep\" pure val x = y pure val z = <caret>x }")
+        stubResult = QuintTypecheckResult(
+            "typechecking", emptyList(), emptyList(),
+            listOf(QuintModule(10, "root", listOf(QuintDeclaration(1, "def", "x", "pureval", null, null)))),
+            mapOf("1" to QuintTypeScheme(emptyList(), emptyList(), QuintTypeNode("int", null, null, null, null)))
+        )
+        assertNotNull(runPass())
+        val declaration = myFixture.getReferenceAtCaretPosition()!!.resolve()!!
+        val documentation = com.dearlordylord.quint.idea.documentation.QuintDocumentationProvider()
+        assertTrue(documentation.generateDoc(declaration, null)!!.contains("x: int"))
+        val document = FileDocumentManager.getInstance().getDocument(dependency.virtualFile)!!
+        WriteCommandAction.runWriteCommandAction(project) { document.setText("module dep { pure val y = true }") }
+        assertNull("retained inferred types must not appear current in hover", documentation.generateDoc(declaration, null))
+    }
 }
 

@@ -25,7 +25,6 @@ class QuintRunConfigurationTest : BasePlatformTestCase() {
         config.mainModule = "Main"
         config.initAction = "start"
         config.stepAction = "advance"
-        config.backend = "typescript"
         val stored = Element("configuration")
         config.writeExternal(stored)
         val restored = type.configurationFactories.single().createTemplateConfiguration(project) as QuintRunConfiguration
@@ -35,6 +34,5 @@ class QuintRunConfigurationTest : BasePlatformTestCase() {
         assertEquals("Main", restored.mainModule)
         assertEquals("start", restored.initAction)
         assertEquals("advance", restored.stepAction)
-        assertEquals("typescript", restored.backend)
     }
 }
