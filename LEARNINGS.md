@@ -182,3 +182,5 @@ JetBrains Marketplace verification flags `Lexer.getTokenNames()` (in `QuintLexer
 - Completion's dummy PSI supplies lexical scope for incomplete expressions; the original PSI supplies module/import context and VFS identity. Using only originalPosition loses a match binder in a blank branch.
 - Source annotations can provide record fields without CLI output. Field navigation must follow actual annotation/typedef references, never a structural name-set match.
 - The separate parse/source-map and typecheck commands can share expression IDs only for the exact same pinned immutable input. Synthetic nodes can share a span; source columns/indices use code points. See the executable capability probe before implementing expression assistance.
+
+- ParsingTestCase uses the capitalized test name (`Simple.qnt` plus `Simple.txt`). Keep fixture filename casing identical: macOS can hide this mismatch, while clean Linux CI fails before parsing.
