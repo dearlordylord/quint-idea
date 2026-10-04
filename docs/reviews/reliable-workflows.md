@@ -1,6 +1,6 @@
 # Delivery audit: reliable Quint workflows
 
-Scope: GitHub specification #1 and tasks #2–#8, baseline `8cc27d6`. TASKS.md remains unchanged at the user's request. Implementation is delivered for review; no release is published and issues close on merge.
+Scope: GitHub specification #1 and tasks #2–#8, baseline `8cc27d6`. TASKS.md remains unchanged at the user's request. Implementation is delivered in [PR #10](https://github.com/dearlordylord/quint-idea/pull/10); issues close on merge. No release is published.
 
 ## Acceptance evidence
 
@@ -20,7 +20,7 @@ Parent #1's stories are covered by the corresponding rows. Chained-expression as
 
 Local command: `JAVA_HOME=/home/node/.local/jdk21 QUINT_TEST_EXECUTABLE=/usr/local/share/npm-global/bin/quint ./gradlew check realCliTest verifyPlugin --no-daemon`.
 
-Final implementation run: **210 tests, zero failures/errors/skips**. Plugin Verifier1.410: **Compatible with IC-251.23774.435 (2025.1)**. It reports two existing ANTLR-generated `getTokenNames()` deprecations. The expression capability probe passed separately. An additional inferred-hover freshness fixture was added after the full run and verified separately; CI runs the complete final set.
+Final implementation run: **210 tests, zero failures/errors/skips**. Plugin Verifier1.410: **Compatible with IC-251.23774.435 (2025.1)**. It reports two existing ANTLR-generated `getTokenNames()` deprecations. The expression capability probe passed separately. An additional inferred-hover freshness fixture was added after the local full run and verified separately. [Clean Linux CI](https://github.com/dearlordylord/quint-idea/actions/runs/37212558011) ran the complete final set: **211 tests, zero failures/errors/skips**, with a successful capability probe and IDEA Community 2025.1 compatibility verification. The first clean run exposed case mismatches in the existing parser input filenames; those were corrected before the successful run.
 
 Limits: execution uses saved files; source checking uses captured unsaved documents. Compatibility evidence covers only IDEACommunity2025.1. Imported Unicode/CRLF expression spans require further evidence in #9. No Marketplace publishing or manual visual sandbox inspection is claimed.
 

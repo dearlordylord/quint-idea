@@ -6,13 +6,18 @@
 - Native saved-file test/run configurations, conservative gutter entry points, console output and Stop
 - Instantiated module members, explicit exports, deep qualified names and match branch binders in source intelligence
 - Inline/imported record annotation assistance and field navigation through declaration provenance
-- Pinned real Quint CLI fixtures, expression-type capability probe and automated IDEA Community 2025.1 verification
+- Pinned Quint 0.32.0 CLI fixtures and automated JDK 21 checks with IDEA Community 2025.1 compatibility verification
+- Expression-type capability investigation for calls and nested records, including Unicode/CRLF; implementation is tracked separately in #9
 
 ### Fixed
 - Typecheck now captures reachable unsaved imports in isolated workspaces instead of mirroring only siblings
 - Analysis freshness includes dependencies, import identities, executable changes and request ordering
 - Missing executable, malformed/empty output and timeout no longer appear as clean checks
-- Stale compiler type facts are withheld; unknown record-field provenance no longer produces guessed navigation
+- Stale compiler type facts are withheld; snapshot and type data are published together, and external-change polling recovers from temporary read failures
+- Unknown record-field provenance no longer produces guessed navigation; function values do not offer fields from their returned record
+- Qualified same-file references require explicit imports, matching the compiler; instance member renames preserve aliases and support undo
+- Diagnostic code-point columns are converted to IntelliJ UTF-16 offsets for Unicode text
+- Parser fixture filename casing now works on clean Linux runners
 - Import navigation uses the same unconditional `.qnt` suffix rule as the pinned compiler
 
 ## [0.5.8]
