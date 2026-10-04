@@ -43,9 +43,9 @@ class QuintRenameTest : BasePlatformTestCase() {
     }
 
     fun testRenameQualifiedRef() {
-        myFixture.configureByText("test.qnt", "module A {\n  val x = 1\n}\nmodule B {\n  val y = <caret>A::x\n}")
+        myFixture.configureByText("test.qnt", "module A {\n  val x = 1\n}\nmodule B {\n  import A\n  val y = <caret>A::x\n}")
         myFixture.renameElementAtCaret("z")
-        myFixture.checkResult("module A {\n  val z = 1\n}\nmodule B {\n  val y = A::z\n}")
+        myFixture.checkResult("module A {\n  val z = 1\n}\nmodule B {\n  import A\n  val y = A::z\n}")
     }
 
     // --- Rename from declaration site ---

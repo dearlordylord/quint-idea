@@ -26,6 +26,7 @@ class QuintNamedElement(node: ASTNode) : ANTLRPsiNode(node), PsiNameIdentifierOw
                         QuintPsiUtils.findFirstChildOfRule(it, QuintParser.RULE_qualId)
                     }
             }
+            QuintParser.RULE_simpleId -> firstChild
             QuintParser.RULE_module -> {
                 QuintPsiUtils.findFirstChildOfRule(this, QuintParser.RULE_qualId)
             }
@@ -49,7 +50,8 @@ class QuintNamedElement(node: ASTNode) : ANTLRPsiNode(node), PsiNameIdentifierOw
         val nameId = nameIdentifier ?: throw IncorrectOperationException("No name identifier")
         val newId = QuintPsiUtils.createQualIdFromText(project, name)
             ?: throw IncorrectOperationException("Cannot create identifier")
-        nameId.node.treeParent.replaceChild(nameId.node, newId.node)
+        val replacement = if (QuintPsiShape.ruleIndex(this) == QuintParser.RULE_simpleId) newId.firstChild ?: newId else newId
+        nameId.node.treeParent.replaceChild(nameId.node, replacement.node)
         return this
     }
 }

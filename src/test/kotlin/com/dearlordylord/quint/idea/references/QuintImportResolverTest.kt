@@ -92,7 +92,7 @@ class QuintImportResolverTest : BasePlatformTestCase() {
     fun testFindModuleCrossFile() {
         myFixture.addFileToProject("a.qnt", "module A { val x = 1 }")
         val bFile = myFixture.configureByText("b.qnt", "module B { val y = 2 }")
-        val module = QuintImportResolver.findModule("A", "./a.qnt", bFile)
+        val module = QuintImportResolver.findModule("A", "./a", bFile)
         assertNotNull("Expected to find module A in a.qnt", module)
         assertEquals("A", QuintPsiUtils.getDeclarationName(module!!))
     }
@@ -107,12 +107,12 @@ class QuintImportResolverTest : BasePlatformTestCase() {
         assertEquals("imports.qnt", resolved!!.name)
     }
 
-    fun testResolveFromSourceWithExtensionStillWorks() {
-        myFixture.addFileToProject("a.qnt", "module A { val x = 1 }")
+    fun testImportSourceAlwaysAppendsExtensionLikeCompiler() {
+        myFixture.addFileToProject("a.qnt", "module Wrong { val x = 1 }")
+        myFixture.addFileToProject("a.qnt.qnt", "module A { val x = 1 }")
         val bFile = myFixture.configureByText("b.qnt", "module B { val y = 2 }")
         val resolved = QuintImportResolver.resolveFromSource("./a.qnt", bFile)
-        assertNotNull("Should resolve path with .qnt extension", resolved)
-        assertEquals("a.qnt", resolved!!.name)
+        assertEquals("a.qnt.qnt", resolved?.name)
     }
 
     // -- findImportsInModule test --

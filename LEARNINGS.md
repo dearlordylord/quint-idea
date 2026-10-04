@@ -172,3 +172,15 @@ Running `./gradlew verifyPlugin` fails with "No IDEs Found" unless you configure
 
 ### ANTLR `getTokenNames()` deprecation warnings
 JetBrains Marketplace verification flags `Lexer.getTokenNames()` (in `QuintLexer`) and `Recognizer.getTokenNames()` (in `QuintParser`) as deprecated. These are in ANTLR-generated code — can't fix without patching the ANTLR 4.13.2 runtime or code generator. Upstream issue: https://github.com/antlr/antlr4/issues/1947. Low priority; the method still works, just deprecated in favor of `getVocabulary()`.
+
+
+## Analysis and source intelligence (2026-10-04)
+
+- Typechecking consumes an immutable root/import snapshot. Each subprocess receives its own copied workspace; no hard links or shared writable checking paths.
+- Declaration spelling in a scope differs from physical declaration identity: `C::step` can point at the source `step`. Completion and reference lookup share this projection.
+- Imports are not implicitly re-exported. Direct declarations and explicit exports form a module's exported surface; instances and alias prefixes follow Quint 0.32.0 fixtures.
+- Completion's dummy PSI supplies lexical scope for incomplete expressions; the original PSI supplies module/import context and VFS identity. Using only originalPosition loses a match binder in a blank branch.
+- Source annotations can provide record fields without CLI output. Field navigation must follow actual annotation/typedef references, never a structural name-set match.
+- The separate parse/source-map and typecheck commands can share expression IDs only for the exact same pinned immutable input. Synthetic nodes can share a span; source columns/indices use code points. See the executable capability probe before implementing expression assistance.
+
+- ParsingTestCase uses the capitalized test name (`Simple.qnt` plus `Simple.txt`). Keep fixture filename casing identical: macOS can hide this mismatch, while clean Linux CI fails before parsing.

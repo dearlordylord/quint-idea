@@ -1,6 +1,7 @@
 package com.dearlordylord.quint.idea.references
 
 import com.dearlordylord.quint.idea.parser.QuintParser
+import com.dearlordylord.quint.idea.psi.QuintPsiShape
 import com.dearlordylord.quint.idea.psi.QuintPsiUtils
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
@@ -21,6 +22,12 @@ object QuintImportResolver {
 
     fun extractImportInfo(importMod: PsiElement): ImportInfo? {
         val type = importMod.node?.elementType as? RuleIElementType ?: return null
+        if (type.ruleIndex == QuintParser.RULE_instanceMod) {
+            val module = QuintPsiUtils.findFirstChildOfRule(importMod, QuintParser.RULE_moduleName)?.text ?: return null
+            val alias = QuintPsiUtils.findFirstChildOfRule(importMod, QuintParser.RULE_qualifiedName)?.text
+            val source = QuintPsiUtils.findFirstChildOfRule(importMod, QuintParser.RULE_fromSource)?.text?.removeSurrounding("\"")
+            return ImportInfo(module, if (alias == null) ImportKind.WILDCARD else ImportKind.ALIASED, alias = alias, fromSource = source)
+        }
         if (type.ruleIndex != QuintParser.RULE_importMod) return null
 
         val identOrStar = QuintPsiUtils.findFirstChildOfRule(importMod, QuintParser.RULE_identOrStar)
@@ -37,7 +44,7 @@ object QuintImportResolver {
                 ImportInfo(moduleName, ImportKind.SPECIFIC, specificName = identOrStar.text, fromSource = fromSource)
             }
         } else {
-            val nameNodes = collectChildrenOfRule(importMod, QuintParser.RULE_name)
+            val nameNodes = QuintPsiShape.nameNodes(importMod)
             if (nameNodes.isEmpty()) return null
             val moduleName = nameNodes[0].text
 
@@ -53,7 +60,7 @@ object QuintImportResolver {
         val contextVf = contextFile.virtualFile ?: return null
         val parentDir = contextVf.parent ?: return null
         // Quint compiler unconditionally appends .qnt to fromSource paths
-        val pathWithExt = if (fromSource.endsWith(".qnt")) fromSource else "$fromSource.qnt"
+        val pathWithExt = "$fromSource.qnt"
         val vf = parentDir.findFileByRelativePath(pathWithExt) ?: return null
         return PsiManager.getInstance(contextFile.project).findFile(vf)
     }
@@ -70,21 +77,8 @@ object QuintImportResolver {
     }
 
     fun findImportsInModule(module: PsiElement): List<ImportInfo> {
-        return QuintPsiUtils.findChildrenOfRule(module, QuintParser.RULE_importMod)
+        return (QuintPsiUtils.findChildrenOfRule(module, QuintParser.RULE_importMod) + QuintPsiUtils.findChildrenOfRule(module, QuintParser.RULE_instanceMod))
             .mapNotNull { extractImportInfo(it) }
     }
 
-    // Non-recursive: collects only direct children, unlike QuintPsiUtils.findChildrenOfRule
-    private fun collectChildrenOfRule(parent: PsiElement, ruleIndex: Int): List<PsiElement> {
-        val result = mutableListOf<PsiElement>()
-        var child = parent.firstChild
-        while (child != null) {
-            val childType = child.node?.elementType as? RuleIElementType
-            if (childType != null && childType.ruleIndex == ruleIndex) {
-                result.add(child)
-            }
-            child = child.nextSibling
-        }
-        return result
-    }
 }

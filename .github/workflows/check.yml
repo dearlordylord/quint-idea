@@ -1,0 +1,30 @@
+name: Check
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      # Node is only used to provision the external test CLI, never to build the plugin.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Provision pinned CLI
+        run: |
+          version=$(sed -n 's/^quintVersion=//p' ci/quint-test-toolchain.properties)
+          npm install --global "@informalsystems/quint@$version"
+          echo "QUINT_TEST_EXECUTABLE=$(command -v quint)" >> "$GITHUB_ENV"
+      - run: python3 ci/probe-expression-types.py
+      - run: ./gradlew check realCliTest verifyPlugin --no-daemon
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-reports
+          path: |
+            build/reports/
+            build/test-results/

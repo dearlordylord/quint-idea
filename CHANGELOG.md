@@ -1,6 +1,41 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+- Check Current Quint File and checking status actions, with a background-checking toggle
+- Native saved-file test/run configurations, conservative gutter entry points, console output and Stop
+- Instantiated module members, explicit exports, deep qualified names and match branch binders in source intelligence
+- Inline/imported record annotation assistance and field navigation through declaration provenance
+- Pinned Quint 0.32.0 CLI fixtures and automated JDK 21 checks with IDEA Community 2025.1 compatibility verification
+- Expression-type capability investigation for calls and nested records, including Unicode/CRLF; implementation is tracked separately in #9
+
+### Fixed
+- Typecheck now captures reachable unsaved imports in isolated workspaces instead of mirroring only siblings
+- Analysis freshness includes dependencies, import identities, executable changes and request ordering
+- Missing executable, malformed/empty output and timeout no longer appear as clean checks
+- Stale compiler type facts are withheld; snapshot and type data are published together, and external-change polling recovers from temporary read failures
+- Unknown record-field provenance no longer produces guessed navigation; function values do not offer fields from their returned record
+- Qualified same-file references require explicit imports, matching the compiler; instance member renames preserve aliases and support undo
+- Diagnostic code-point columns are converted to IntelliJ UTF-16 offsets for Unicode text
+- Parser fixture filename casing now works on clean Linux runners
+- Import navigation uses the same unconditional `.qnt` suffix rule as the pinned compiler
+
+## [0.5.8]
+### Changed
+- Refactored language-support internals to centralize Quint vocabulary, PSI shape, name resolution, type lookup, typecheck execution, record-field workflows, and parser token naming without changing user-facing behavior
+
+## [0.5.7]
+### Fixed
+- Typing lag on large files: ANTLR parser now attempts SLL prediction first and falls back to full LL only on ambiguity, cutting per-keystroke parse time on expression-heavy files so the EDT is no longer blocked waiting for the read lock to release
+- Diagnostics becoming stuck (red never appearing after an edit, or stale red never clearing after a fix): the debounced typecheck now schedules a daemon restart after the quiet period, so a pass reliably resumes once you stop typing
+- Typecheck cache invalidated by unrelated save / VFS churn: cache is keyed by document content hash instead of `Document.modificationStamp`, which resets on save and used to flicker annotations or pin stale errors
+- Daemon "highlighting copy" passes bypassing the cache: resolved the editor's real document via `PsiFile.originalFile` so copy and original share one cache entry
+- Hover type info going blank when the file has a typecheck error: the type cache is now replaced only when quint returns type data, preserving the last known-good types across transient errors
+
+### Changed
+- Snapshot temp file (`.quint-idea-*.qnt.tmp`) no longer written into the user's source directory. A mirror of the source dir is maintained under `PathManager.getTempPath()` with sibling `.qnt` files hard-linked in, keeping the repo free of transient files and `git status` clean
+
+## [0.5.6]
 ### Fixed
 - Debounced external typechecking while typing so editor diagnostics wait for a short idle period instead of re-running on every keystroke
 

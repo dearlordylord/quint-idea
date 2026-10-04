@@ -18,7 +18,7 @@ class QuintFileReferenceTest : BasePlatformTestCase() {
     fun testFromSourceReferencesFile() {
         myFixture.addFileToProject("a.qnt", "module A {\n  val x = 1\n}")
         myFixture.configureByText("b.qnt",
-            """module B { import A.* from "<caret>./a.qnt" }""")
+            """module B { import A.* from "<caret>./a" }""")
         val ref = findFileReference()
         assertNotNull("Expected file reference on from source string", ref)
         val resolved = ref!!.resolve()
@@ -30,7 +30,7 @@ class QuintFileReferenceTest : BasePlatformTestCase() {
     fun testFromSourceQualifiedImport() {
         myFixture.addFileToProject("other.qnt", "module Other {\n  val y = 2\n}")
         myFixture.configureByText("main.qnt",
-            """module Main { import Other from "<caret>./other.qnt" }""")
+            """module Main { import Other from "<caret>./other" }""")
         val ref = findFileReference()
         assertNotNull("Expected file reference", ref)
         val resolved = ref!!.resolve()
@@ -42,7 +42,7 @@ class QuintFileReferenceTest : BasePlatformTestCase() {
     fun testFromSourceInSubdirectory() {
         myFixture.addFileToProject("sub/lib.qnt", "module Lib {\n  val z = 3\n}")
         myFixture.configureByText("main.qnt",
-            """module Main { import Lib.* from "<caret>./sub/lib.qnt" }""")
+            """module Main { import Lib.* from "<caret>./sub/lib" }""")
         val ref = findFileReference()
         assertNotNull("Expected file reference for subdirectory path", ref)
         val resolved = ref!!.resolve()
@@ -65,7 +65,7 @@ class QuintFileReferenceTest : BasePlatformTestCase() {
 
     fun testNonexistentFileReturnsNull() {
         myFixture.configureByText("main.qnt",
-            """module Main { import X.* from "<caret>./nonexistent.qnt" }""")
+            """module Main { import X.* from "<caret>./nonexistent" }""")
         val ref = findFileReference()
         assertNotNull("Expected file reference even for nonexistent file", ref)
         val resolved = ref!!.resolve()
