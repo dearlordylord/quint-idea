@@ -9,6 +9,8 @@ import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.editor.event.DocumentListener
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.ProjectLocator
+import com.intellij.openapi.project.ProjectManager
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Key
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiManager
@@ -41,7 +43,10 @@ class QuintTypecheckSchedulingService : Disposable {
                     val file = FileDocumentManager.getInstance().getFile(event.document) ?: return
                     if (file.extension != "qnt") return
                     markEdited(event.document)
-                    scheduleRestart(file)
+                    for (project in ProjectManager.getInstance().openProjects) {
+                        QuintCheckingService.getInstance(project).invalidate(file.path)
+                    }
+                    ProjectLocator.getInstance().guessProjectForFile(file)?.let { scheduleRestart(it, file) }
                 }
             },
             this
@@ -57,11 +62,10 @@ class QuintTypecheckSchedulingService : Disposable {
         document.putUserData(LAST_EDIT_AT_KEY, nowProvider())
     }
 
-    private fun scheduleRestart(file: VirtualFile) {
-        restartQueue.queue(object : Update(file.path) {
+    fun scheduleRestart(project: Project, file: VirtualFile) {
+        restartQueue.queue(object : Update(project to file.path) {
             override fun run() {
-                val project = ProjectLocator.getInstance().guessProjectForFile(file) ?: return
-                if (project.isDisposed) return
+                if (project.isDisposed || !file.isValid) return
                 val psi = PsiManager.getInstance(project).findFile(file) ?: return
                 DaemonCodeAnalyzer.getInstance(project).restart(psi)
             }

@@ -10,10 +10,21 @@ class QuintCrossFileCompletionTest : BasePlatformTestCase() {
         return myFixture.lookupElementStrings ?: emptyList()
     }
 
+    fun testInstanceAliasCompletionUsesQualifiedSpelling() {
+        val names = completionStrings("module Counter { const N: int pure val nextState = N } module Main { import Counter(N = 1) as C pure val result = <caret> }")
+        assertTrue("C::nextState" in names)
+        assertFalse("nextState" in names)
+    }
+
+    fun testMatchBinderCompletion() {
+        val names = completionStrings("module M { type T = Some(int) | None pure def f(v: T): int = match v { Some(branchValue) => <caret> | None => 0 } }")
+        assertTrue("branchValue" in names)
+    }
+
     fun testWildcardImportCompletion() {
         myFixture.addFileToProject("a.qnt", "module A { val mySpecialVal = 1 }")
         myFixture.configureByText("b.qnt",
-            "module B { import A.* from \"./a.qnt\"\n  val y = <caret> }")
+            "module B { import A.* from \"./a\"\n  val y = <caret> }")
         myFixture.completeBasic()
         val names = myFixture.lookupElementStrings ?: emptyList()
         assertTrue("mySpecialVal should appear via wildcard import; got $names", "mySpecialVal" in names)
@@ -28,7 +39,7 @@ class QuintCrossFileCompletionTest : BasePlatformTestCase() {
     fun testSpecificImportCompletion() {
         myFixture.addFileToProject("a.qnt", "module A { val foo = 1 val bar = 2 }")
         myFixture.configureByText("b.qnt",
-            "module B { import A.foo from \"./a.qnt\"\n  val y = <caret> }")
+            "module B { import A.foo from \"./a\"\n  val y = <caret> }")
         myFixture.completeBasic()
         val names = myFixture.lookupElementStrings ?: emptyList()
         assertTrue("foo should appear via specific import; got $names", "foo" in names)
@@ -37,7 +48,7 @@ class QuintCrossFileCompletionTest : BasePlatformTestCase() {
     fun testSpecificImportDoesNotShowOtherNames() {
         myFixture.addFileToProject("a.qnt", "module A { val foo = 1 val barUnique = 2 }")
         myFixture.configureByText("b.qnt",
-            "module B { import A.foo from \"./a.qnt\"\n  val y = <caret> }")
+            "module B { import A.foo from \"./a\"\n  val y = <caret> }")
         myFixture.completeBasic()
         val names = myFixture.lookupElementStrings ?: emptyList()
         assertFalse("barUnique should NOT appear (not imported); got $names", "barUnique" in names)
@@ -58,7 +69,7 @@ class QuintCrossFileCompletionTest : BasePlatformTestCase() {
     fun testWildcardImportShowsMultipleNames() {
         myFixture.addFileToProject("a.qnt", "module A { val alpha = 1 def beta(x) = x }")
         myFixture.configureByText("b.qnt",
-            "module B { import A.* from \"./a.qnt\"\n  val y = <caret> }")
+            "module B { import A.* from \"./a\"\n  val y = <caret> }")
         myFixture.completeBasic()
         val names = myFixture.lookupElementStrings ?: emptyList()
         assertTrue("alpha should appear via wildcard import; got $names", "alpha" in names)

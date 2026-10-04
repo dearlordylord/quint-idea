@@ -12,6 +12,7 @@ import com.intellij.util.xmlb.XmlSerializerUtil
 )
 class QuintSettingsState : PersistentStateComponent<QuintSettingsState> {
     var quintBinaryPath: String = ""
+    var backgroundChecking: Boolean = true
 
     @Transient
     @Volatile

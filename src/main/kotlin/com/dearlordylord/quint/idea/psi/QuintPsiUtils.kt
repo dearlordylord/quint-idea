@@ -104,6 +104,7 @@ object QuintPsiUtils {
                 val moduleName = findFirstChildOfRule(declaration, QuintParser.RULE_moduleName)
                 moduleName?.text
             }
+            QuintParser.RULE_simpleId -> declaration.text
             QuintParser.RULE_parameter, QuintParser.RULE_annotatedParameter -> {
                 // parameter → identOrHole → qualId
                 val identOrHole = findFirstChildOfRule(declaration, QuintParser.RULE_identOrHole)

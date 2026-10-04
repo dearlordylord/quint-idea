@@ -11,7 +11,10 @@ object QuintTypeCache {
 
     private val TYPE_DATA_KEY = Key.create<Map<DeclKey, QuintTypeScheme>>("QUINT_TYPE_DATA")
 
-    fun update(file: VirtualFile, result: QuintTypecheckResult) {
+    private val SNAPSHOT_KEY = Key.create<QuintAnalysisSnapshot>("QUINT_TYPE_SNAPSHOT")
+
+    fun update(file: VirtualFile, result: QuintTypecheckResult, snapshot: QuintAnalysisSnapshot? = null) {
+        file.putUserData(SNAPSHOT_KEY, snapshot)
         val declTypes = mutableMapOf<DeclKey, QuintTypeScheme>()
 
         for (module in result.modules) {
@@ -34,6 +37,11 @@ object QuintTypeCache {
     }
 
     fun getTypeScheme(file: VirtualFile, moduleName: String, declName: String): QuintTypeScheme? {
+        val snapshot = file.getUserData(SNAPSHOT_KEY)
+        if (snapshot != null) {
+            val text = com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().getDocument(file)?.text ?: return null
+            if (!snapshot.isCurrent(text)) return null
+        }
         val data = file.getUserData(TYPE_DATA_KEY) ?: return null
         return data[DeclKey(moduleName, declName)]
     }

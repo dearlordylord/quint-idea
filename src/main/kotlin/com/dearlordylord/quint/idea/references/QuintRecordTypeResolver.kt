@@ -4,6 +4,7 @@ import com.dearlordylord.quint.idea.annotator.QuintFieldNode
 import com.dearlordylord.quint.idea.annotator.QuintTypeFormatter
 import com.dearlordylord.quint.idea.annotator.QuintTypeInfo
 import com.dearlordylord.quint.idea.annotator.QuintTypeNode
+import com.dearlordylord.quint.idea.annotator.QuintSourceTypes
 import com.dearlordylord.quint.idea.parser.QuintParser
 import com.dearlordylord.quint.idea.psi.QuintPsiShape
 import com.dearlordylord.quint.idea.psi.QuintPsiUtils
@@ -120,40 +121,18 @@ object QuintRecordTypeResolver {
         return QuintTypeInfo.typeForDeclaration(declaration, expr)
     }
 
-    /**
-     * Find the typeDef rowLabel PSI node that defines a given record field.
-     * Searches typeDef declarations in the module for a matching rowLabel.
-     * When receiverFields are provided, disambiguates by matching the full field set.
-     */
+    /** Navigate only through the receiver annotation and its actual typedef references. */
     fun findFieldDefinition(
         fieldName: String,
         receiverFields: List<QuintFieldNode>?,
         contextElement: PsiElement
     ): PsiElement? {
-        val module = QuintPsiUtils.getContainingModule(contextElement) ?: return null
-        val typeDefs = QuintPsiUtils.findChildrenOfRule(module, QuintParser.RULE_typeDef)
-
-        var bestMatch: PsiElement? = null
-        val receiverFieldNames = receiverFields?.map { it.fieldName }?.toSet()
-
-        for (typeDef in typeDefs) {
-            val rowLabels = QuintPsiUtils.findChildrenOfRule(typeDef, QuintParser.RULE_rowLabel)
-            val matchingLabel = rowLabels.firstOrNull { it.text == fieldName } ?: continue
-
-            if (receiverFieldNames == null) {
-                return matchingLabel
-            }
-
-            // Disambiguate: prefer typeDef whose field set matches the receiver's fields
-            val allLabels = rowLabels.map { it.text }.toSet()
-            if (allLabels == receiverFieldNames) {
-                return matchingLabel
-            }
-            if (bestMatch == null) {
-                bestMatch = matchingLabel
-            }
-        }
-
-        return bestMatch
+        val dotCall = findEnclosingDotCall(contextElement) ?: return null
+        val receiver = QuintPsiShape.dotCallReceiver(dotCall) ?: return null
+        val name = QuintPsiShape.simpleQualIdInExpression(receiver) ?: return null
+        val declaration = name.reference?.resolve() ?: return null
+        val annotation = QuintSourceTypes.annotation(declaration) ?: return null
+        val row = QuintSourceTypes.recordRow(annotation) ?: return null
+        return QuintPsiShape.directChildrenOfRule(row, QuintParser.RULE_rowLabel).firstOrNull { it.text == fieldName }
     }
 }

@@ -25,6 +25,7 @@ object QuintTypeInfo {
     }
 
     fun typeForDeclaration(declaration: PsiElement, context: PsiElement): QuintTypeNode? {
+        QuintSourceTypes.typeForDeclaration(declaration)?.let { return it }
         annotatedParameterTypeNode(declaration, context)?.let { return it }
         return typeSchemeFor(declaration, context)?.type
     }

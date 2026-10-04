@@ -16,7 +16,7 @@ class QuintCrossFileRefTest : BasePlatformTestCase() {
     fun testCrossFileQualifiedRef() {
         myFixture.addFileToProject("a.qnt", "module A { val x = 1 }")
         myFixture.configureByText("b.qnt",
-            "module B { import A from \"./a.qnt\" val y = <caret>A::x }")
+            "module B { import A from \"./a\" val y = <caret>A::x }")
         val resolved = resolveAtCaret()
         assertNotNull("Expected cross-file qualified ref to resolve", resolved)
         assertTrue("Expected QuintNamedElement", resolved is QuintNamedElement)
@@ -26,7 +26,7 @@ class QuintCrossFileRefTest : BasePlatformTestCase() {
     fun testCrossFileAliasedRef() {
         myFixture.addFileToProject("a.qnt", "module A { val x = 1 }")
         myFixture.configureByText("b.qnt",
-            "module B { import A as Foo from \"./a.qnt\" val y = <caret>Foo::x }")
+            "module B { import A as Foo from \"./a\" val y = <caret>Foo::x }")
         val resolved = resolveAtCaret()
         assertNotNull("Expected cross-file aliased ref to resolve", resolved)
         assertTrue("Expected QuintNamedElement", resolved is QuintNamedElement)

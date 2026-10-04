@@ -1,0 +1,48 @@
+{
+  "quint": "0.32.0",
+  "decision": "go for valid immutable snapshots with IR-based disambiguation; no mapping for incomplete source",
+  "cases": [
+    {
+      "variant": "plain",
+      "same_ir": true,
+      "index_units": "Unicode code points in root input (including CRLF)",
+      "expressions": [
+        {
+          "expression": "make(2)",
+          "kind": "rec"
+        },
+        {
+          "expression": "make(2).child",
+          "kind": "rec"
+        },
+        {
+          "expression": "make(2).child.count",
+          "kind": "int"
+        }
+      ]
+    },
+    {
+      "variant": "unicode_crlf",
+      "same_ir": true,
+      "index_units": "Unicode code points in root input (including CRLF)",
+      "expressions": [
+        {
+          "expression": "make(2)",
+          "kind": "rec"
+        },
+        {
+          "expression": "make(2).child",
+          "kind": "rec"
+        },
+        {
+          "expression": "make(2).child.count",
+          "kind": "int"
+        }
+      ]
+    },
+    {
+      "variant": "incomplete",
+      "mapping": "unavailable: syntax errors"
+    }
+  ]
+}

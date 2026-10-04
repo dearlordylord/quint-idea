@@ -98,14 +98,12 @@ object QuintPsiShape {
 
     fun simpleQualIdInExpression(expr: PsiElement): PsiElement? {
         if (isRule(expr, QuintParser.RULE_qualId)) return expr
-        var child = expr.firstChild
-        while (child != null) {
-            if (isRule(child, QuintParser.RULE_qualId)) return child
-            if (isRule(child, QuintParser.RULE_expr)) {
-                val nested = simpleQualIdInExpression(child)
-                if (nested != null) return nested
-            }
-            child = child.nextSibling
+        if (!isRule(expr, QuintParser.RULE_expr)) return null
+        val significant = expr.children.filter { it !is com.intellij.psi.PsiWhiteSpace && it !is com.intellij.psi.PsiComment }
+        if (significant.size == 1 && isRule(significant[0], QuintParser.RULE_qualId)) return significant[0]
+        // Parentheses preserve a receiver identity; calls, operators and member chains do not.
+        if (significant.size == 3 && significant[0].text == "(" && significant[2].text == ")") {
+            return simpleQualIdInExpression(significant[1])
         }
         return null
     }

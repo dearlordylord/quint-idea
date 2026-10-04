@@ -10,51 +10,26 @@ object QuintNameResolver {
     fun resolve(element: PsiElement): PsiElement? {
         val name = element.text
 
-        if ("::" in name) {
-            return resolveQualified(element, name)
-        }
-
         resolveInstanceParam(element, name)?.let { return it }
-
-        val scopeResult = QuintScopeResolver.findVisibleDeclarations(element)
-            .firstOrNull { it.name == name }
-        if (scopeResult != null) return scopeResult
-
-        return resolveAsRecordField(element, name)
+        QuintScopeResolver.findVisibleSymbols(element).firstOrNull { it.name == name }?.let { return it.declaration }
+        if ("::" in name) {
+            val file = element.containingFile ?: return null
+            for (module in QuintPsiUtils.findModules(file)) {
+                val prefix = QuintPsiUtils.getDeclarationName(module) ?: continue
+                if (name.startsWith("$prefix::")) {
+                    QuintScopeResolver.exportedSymbols(module).firstOrNull { it.name == name.removePrefix("$prefix::") }?.let { return it.declaration }
+                }
+            }
+        }
+        return QuintRecordTypeResolver.resolveNameAfterDotField(element, name)
     }
 
     fun resolveMemberInModule(context: PsiElement, moduleName: String, memberName: String): PsiElement? {
         val file = context.containingFile ?: return null
-
-        val sameFileModule = QuintPsiUtils.findModules(file).firstOrNull {
-            QuintPsiUtils.getDeclarationName(it) == moduleName
-        }
-        if (sameFileModule != null) {
-            val decl = QuintScopeResolver.findModuleLevelDeclarations(sameFileModule)
-                .firstOrNull { it.name == memberName }
-            if (decl != null) return decl
-        }
-
-        val containingModule = QuintPsiUtils.getContainingModule(context) ?: return null
-        val imports = QuintImportResolver.findImportsInModule(containingModule)
-        for (imp in imports) {
-            val matches = when (imp.kind) {
-                ImportKind.QUALIFIED -> imp.moduleName == moduleName
-                ImportKind.ALIASED -> imp.alias == moduleName
-                else -> false
-            }
-            if (!matches) continue
-            val targetModule = QuintImportResolver.findModule(imp.moduleName, imp.fromSource, file)
-                ?: continue
-            val decl = QuintScopeResolver.findModuleLevelDeclarations(targetModule)
-                .firstOrNull { it.name == memberName }
-            if (decl != null) return decl
-        }
-        return null
-    }
-
-    private fun resolveAsRecordField(element: PsiElement, name: String): PsiElement? {
-        return QuintRecordTypeResolver.resolveNameAfterDotField(element, name)
+        val containing = QuintPsiUtils.getContainingModule(context)
+        val imported = containing?.let { QuintImportResolver.findImportsInModule(it).firstOrNull { imp -> (imp.alias ?: imp.moduleName) == moduleName } }
+        val target = QuintImportResolver.findModule(imported?.moduleName ?: moduleName, imported?.fromSource, file) ?: return null
+        return QuintScopeResolver.exportedSymbols(target).firstOrNull { it.name == memberName }?.declaration
     }
 
     private fun resolveInstanceParam(element: PsiElement, name: String): PsiElement? {
@@ -69,9 +44,4 @@ object QuintNameResolver {
         return resolveMemberInModule(element, moduleNameNode.text, name)
     }
 
-    private fun resolveQualified(element: PsiElement, qualName: String): PsiElement? {
-        val parts = qualName.split("::")
-        if (parts.size != 2) return null
-        return resolveMemberInModule(element, parts[0], parts[1])
-    }
 }

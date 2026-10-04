@@ -1,6 +1,19 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+- Check Current Quint File and checking status actions, with a background-checking toggle
+- Native saved-file test/run configurations, conservative gutter entry points, console output and Stop
+- Instantiated module members, explicit exports, deep qualified names and match branch binders in source intelligence
+- Inline/imported record annotation assistance and field navigation through declaration provenance
+- Pinned real Quint CLI fixtures, expression-type capability probe and automated IDEA Community 2025.1 verification
+
+### Fixed
+- Typecheck now captures reachable unsaved imports in isolated workspaces instead of mirroring only siblings
+- Analysis freshness includes dependencies, import identities, executable changes and request ordering
+- Missing executable, malformed/empty output and timeout no longer appear as clean checks
+- Stale compiler type facts are withheld; unknown record-field provenance no longer produces guessed navigation
+- Import navigation uses the same unconditional `.qnt` suffix rule as the pinned compiler
 
 ## [0.5.8]
 ### Changed

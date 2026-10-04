@@ -22,6 +22,12 @@ object QuintImportResolver {
 
     fun extractImportInfo(importMod: PsiElement): ImportInfo? {
         val type = importMod.node?.elementType as? RuleIElementType ?: return null
+        if (type.ruleIndex == QuintParser.RULE_instanceMod) {
+            val module = QuintPsiUtils.findFirstChildOfRule(importMod, QuintParser.RULE_moduleName)?.text ?: return null
+            val alias = QuintPsiUtils.findFirstChildOfRule(importMod, QuintParser.RULE_qualifiedName)?.text
+            val source = QuintPsiUtils.findFirstChildOfRule(importMod, QuintParser.RULE_fromSource)?.text?.removeSurrounding("\"")
+            return ImportInfo(module, if (alias == null) ImportKind.WILDCARD else ImportKind.ALIASED, alias = alias, fromSource = source)
+        }
         if (type.ruleIndex != QuintParser.RULE_importMod) return null
 
         val identOrStar = QuintPsiUtils.findFirstChildOfRule(importMod, QuintParser.RULE_identOrStar)
@@ -54,7 +60,7 @@ object QuintImportResolver {
         val contextVf = contextFile.virtualFile ?: return null
         val parentDir = contextVf.parent ?: return null
         // Quint compiler unconditionally appends .qnt to fromSource paths
-        val pathWithExt = if (fromSource.endsWith(".qnt")) fromSource else "$fromSource.qnt"
+        val pathWithExt = "$fromSource.qnt"
         val vf = parentDir.findFileByRelativePath(pathWithExt) ?: return null
         return PsiManager.getInstance(contextFile.project).findFile(vf)
     }
@@ -71,7 +77,7 @@ object QuintImportResolver {
     }
 
     fun findImportsInModule(module: PsiElement): List<ImportInfo> {
-        return QuintPsiUtils.findChildrenOfRule(module, QuintParser.RULE_importMod)
+        return (QuintPsiUtils.findChildrenOfRule(module, QuintParser.RULE_importMod) + QuintPsiUtils.findChildrenOfRule(module, QuintParser.RULE_instanceMod))
             .mapNotNull { extractImportInfo(it) }
     }
 

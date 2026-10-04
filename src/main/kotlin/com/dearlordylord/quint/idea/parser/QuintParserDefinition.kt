@@ -79,6 +79,12 @@ class QuintParserDefinition : ParserDefinition {
                 QuintParser.RULE_module,
                 QuintParser.RULE_parameter,
                 QuintParser.RULE_annotatedParameter -> return QuintNamedElement(node)
+                QuintParser.RULE_simpleId -> {
+                    val parentType = node.treeParent?.elementType as? RuleIElementType
+                    if (parentType?.ruleIndex == QuintParser.RULE_matchSumVariant && node.treeParent.findChildByType(type) !== node) {
+                        return QuintNamedElement(node)
+                    }
+                }
                 QuintParser.RULE_qualId -> return QuintQualIdNode(node)
                 QuintParser.RULE_fromSource -> return QuintFromSourceNode(node)
                 QuintParser.RULE_declaration -> {

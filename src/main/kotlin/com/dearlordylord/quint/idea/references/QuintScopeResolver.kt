@@ -7,117 +7,90 @@ import com.dearlordylord.quint.idea.psi.QuintPsiUtils
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiNamedElement
 
+/** Spelling in the current scope is separate from the physical declaration identity. */
+data class QuintVisibleSymbol(val name: String, val declaration: PsiNamedElement)
+
 object QuintScopeResolver {
+    fun findVisibleDeclarations(position: PsiElement): List<PsiNamedElement> =
+        findVisibleSymbols(position).filter { it.name == it.declaration.name }.map { it.declaration }
 
-    fun findVisibleDeclarations(position: PsiElement): List<PsiNamedElement> {
-        val result = mutableListOf<PsiNamedElement>()
+    fun findVisibleSymbols(position: PsiElement, sourceContext: PsiElement = position): List<QuintVisibleSymbol> {
+        val result = mutableListOf<QuintVisibleSymbol>()
+        fun add(declaration: PsiNamedElement) {
+            declaration.name?.takeIf { it != "_" }?.let { result.add(QuintVisibleSymbol(it, declaration)) }
+        }
         var current = position.parent
-
         while (current != null) {
             when (QuintPsiShape.ruleIndex(current)) {
-                QuintParser.RULE_operDef -> collectOperDefParams(current, result)
-                QuintParser.RULE_lambdaUnsugared, QuintParser.RULE_lambdaTupleSugar -> collectLambdaParams(current, result)
-                QuintParser.RULE_expr -> collectLetInBinding(current, position, result)
-                QuintParser.RULE_module -> collectModuleDeclarations(current, result, mutableSetOf())
+                QuintParser.RULE_operDef -> {
+                    (QuintPsiShape.parameterNodes(current) + QuintPsiShape.annotatedParameterNodes(current)).filterIsInstance<QuintNamedElement>().forEach(::add)
+                }
+                QuintParser.RULE_lambdaUnsugared, QuintParser.RULE_lambdaTupleSugar ->
+                    QuintPsiShape.parameterNodes(current).filterIsInstance<QuintNamedElement>().forEach(::add)
+                QuintParser.RULE_matchSumCase -> {
+                    val variant = QuintPsiUtils.findFirstChildOfRule(current, QuintParser.RULE_matchSumVariant)
+                    if (variant != null) QuintPsiShape.directChildrenOfRule(variant, QuintParser.RULE_simpleId).filterIsInstance<QuintNamedElement>().forEach(::add)
+                }
+                QuintParser.RULE_expr -> {
+                    val first = current.firstChild
+                    if (first is QuintNamedElement && QuintPsiShape.isOperationDefinition(first) && !QuintPsiShape.isAncestor(first, position)) add(first)
+                }
+                QuintParser.RULE_module -> {
+                    val physical = QuintPsiUtils.getContainingModule(sourceContext) ?: current
+                    result.addAll(moduleSymbols(physical, false, mutableSetOf()))
+                }
             }
             current = current.parent
         }
-
-        return result
+        // Walk-up order preserves the nearest binder for completion and resolution alike.
+        return result.distinctBy { it.name }
     }
 
-    fun findModuleLevelDeclarations(module: PsiElement): List<PsiNamedElement> {
-        val result = mutableListOf<PsiNamedElement>()
-        collectModuleDeclarations(module, result, mutableSetOf())
-        return result
-    }
+    fun findModuleLevelDeclarations(module: PsiElement): List<PsiNamedElement> =
+        exportedSymbols(module).filter { it.name == it.declaration.name }.map { it.declaration }
 
-    private fun collectOperDefParams(operDef: PsiElement, result: MutableList<PsiNamedElement>) {
-        result.addAll(namedDirectChildren(operDef, QuintParser.RULE_parameter, QuintParser.RULE_annotatedParameter))
-    }
+    fun exportedSymbols(module: PsiElement): List<QuintVisibleSymbol> = moduleSymbols(module, true, mutableSetOf())
 
-    private fun collectLambdaParams(lambda: PsiElement, result: MutableList<PsiNamedElement>) {
-        result.addAll(namedDirectChildren(lambda, QuintParser.RULE_parameter))
-    }
-
-    private fun collectLetInBinding(expr: PsiElement, position: PsiElement, result: MutableList<PsiNamedElement>) {
-        // letIn pattern: expr → operDef expr
-        val firstChild = expr.firstChild
-        if (firstChild is QuintNamedElement) {
-            if (QuintPsiShape.isOperationDefinition(firstChild)) {
-                // Only visible if position is in the body expr, not in the operDef itself
-                if (!QuintPsiShape.isAncestor(firstChild, position)) {
-                    result.add(firstChild)
+    private fun moduleSymbols(module: PsiElement, exportedOnly: Boolean, visiting: MutableSet<Pair<PsiElement, Boolean>>): List<QuintVisibleSymbol> {
+        val key = module to exportedOnly
+        if (!visiting.add(key)) return emptyList()
+        try {
+            val result = mutableListOf<QuintVisibleSymbol>()
+            for (declaration in QuintPsiUtils.findDeclarations(module)) {
+                val own = if (declaration is QuintNamedElement) declaration else declaration.children.filterIsInstance<QuintNamedElement>().firstOrNull()
+                if (own != null) own.name?.let { result.add(QuintVisibleSymbol(it, own)) }
+                for (node in declaration.children) {
+                    val rule = QuintPsiShape.ruleIndex(node)
+                    val export = rule == QuintParser.RULE_exportMod
+                    if (!export && (exportedOnly || rule !in setOf(QuintParser.RULE_importMod, QuintParser.RULE_instanceMod))) continue
+                    val info = if (export) exportInfo(node) else QuintImportResolver.extractImportInfo(node)
+                    if (info == null) continue
+                    val file = module.containingFile ?: continue
+                    val aliasImport = if (export) QuintImportResolver.findImportsInModule(module).firstOrNull { (it.alias ?: it.moduleName) == info.moduleName } else null
+                    val target = QuintImportResolver.findModule(aliasImport?.moduleName ?: info.moduleName, aliasImport?.fromSource ?: info.fromSource, file) ?: continue
+                    val surface = moduleSymbols(target, true, visiting)
+                    result.addAll(qualify(surface, info))
                 }
             }
-        }
+            return result.distinctBy { it.name }
+        } finally { visiting.remove(key) }
     }
 
-    private fun collectModuleDeclarations(
-        module: PsiElement,
-        result: MutableList<PsiNamedElement>,
-        visiting: MutableSet<PsiElement>
-    ) {
-        if (!visiting.add(module)) return // cycle guard
-        val documentedDeclarations = QuintPsiShape.documentedDeclarations(module)
-        for (documentedDeclaration in documentedDeclarations) {
-            val declarationNodes = QuintPsiShape.declarationNodes(documentedDeclaration)
-            for (declaration in declarationNodes) {
-                collectDeclarationSurface(declaration, module, result, visiting)
-            }
-        }
+    private fun qualify(symbols: List<QuintVisibleSymbol>, info: ImportInfo): List<QuintVisibleSymbol> = when (info.kind) {
+        ImportKind.WILDCARD -> symbols
+        ImportKind.SPECIFIC -> symbols.filter { it.name == info.specificName }
+        ImportKind.QUALIFIED, ImportKind.ALIASED -> symbols.map { it.copy(name = "${info.alias ?: info.moduleName}::${it.name}") }
     }
 
-    private fun collectDeclarationSurface(
-        declaration: PsiElement,
-        module: PsiElement,
-        result: MutableList<PsiNamedElement>,
-        visiting: MutableSet<PsiElement>
-    ) {
-        if (declaration is QuintNamedElement) {
-            result.add(declaration)
-            return
-        }
-
-        var inner = declaration.firstChild
-        while (inner != null) {
-            when {
-                inner is QuintNamedElement -> result.add(inner)
-                QuintPsiShape.isImportModule(inner) ->
-                    collectImportedDeclarations(inner, module, result, visiting)
-            }
-            inner = inner.nextSibling
-        }
-    }
-
-    private fun namedDirectChildren(parent: PsiElement, vararg ruleIndices: Int): List<PsiNamedElement> {
-        val rules = ruleIndices.toSet()
-        return QuintPsiShape.parameterNodes(parent)
-            .plus(if (QuintParser.RULE_annotatedParameter in rules) QuintPsiShape.annotatedParameterNodes(parent) else emptyList())
-            .filterIsInstance<QuintNamedElement>()
-            .filter { QuintPsiShape.ruleIndex(it) in rules }
-    }
-
-    private fun collectImportedDeclarations(
-        importMod: PsiElement,
-        module: PsiElement,
-        result: MutableList<PsiNamedElement>,
-        visiting: MutableSet<PsiElement>
-    ) {
-        val importInfo = QuintImportResolver.extractImportInfo(importMod) ?: return
-        val containingFile = module.containingFile ?: return
-        val targetModule = QuintImportResolver.findModule(
-            importInfo.moduleName, importInfo.fromSource, containingFile
-        ) ?: return
-
-        if (importInfo.kind != ImportKind.WILDCARD && importInfo.kind != ImportKind.SPECIFIC) return
-
-        val imported = mutableListOf<PsiNamedElement>()
-        collectModuleDeclarations(targetModule, imported, visiting)
-        if (importInfo.kind == ImportKind.WILDCARD) {
-            result.addAll(imported)
-        } else {
-            imported.firstOrNull { it.name == importInfo.specificName }?.let { result.add(it) }
+    private fun exportInfo(node: PsiElement): ImportInfo? {
+        val names = QuintPsiShape.nameNodes(node)
+        val module = names.firstOrNull()?.text ?: return null
+        val selected = QuintPsiUtils.findFirstChildOfRule(node, QuintParser.RULE_identOrStar)?.text
+        return when {
+            selected == "*" -> ImportInfo(module, ImportKind.WILDCARD)
+            selected != null -> ImportInfo(module, ImportKind.SPECIFIC, specificName = selected)
+            names.size > 1 -> ImportInfo(module, ImportKind.ALIASED, alias = names[1].text)
+            else -> ImportInfo(module, ImportKind.QUALIFIED)
         }
     }
 }

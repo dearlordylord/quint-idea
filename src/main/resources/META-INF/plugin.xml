@@ -92,6 +92,10 @@ Language support for the <a href="https://github.com/informalsystems/quint">Quin
             language="Quint"
             implementationClass="com.dearlordylord.quint.idea.annotator.QuintExternalAnnotator"/>
 
+        <configurationType implementation="com.dearlordylord.quint.idea.execution.QuintRunConfigurationType"/>
+        <runConfigurationProducer implementation="com.dearlordylord.quint.idea.execution.QuintRunConfigurationProducer"/>
+        <runLineMarkerContributor language="Quint" implementationClass="com.dearlordylord.quint.idea.execution.QuintRunLineMarkerContributor"/>
+
         <!-- Settings -->
         <applicationConfigurable
             parentId="tools"
@@ -102,5 +106,14 @@ Language support for the <a href="https://github.com/informalsystems/quint">Quin
             serviceImplementation="com.dearlordylord.quint.idea.settings.QuintSettingsState"/>
         <applicationService
             serviceImplementation="com.dearlordylord.quint.idea.annotator.QuintTypecheckSchedulingService"/>
+        <projectService serviceImplementation="com.dearlordylord.quint.idea.annotator.QuintCheckingService"/>
     </extensions>
+    <actions>
+        <action id="Quint.CheckCurrentFile" class="com.dearlordylord.quint.idea.annotator.QuintCheckCurrentFileAction" text="Check Current Quint File" description="Check the current document and its unsaved imports">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+        <action id="Quint.CheckStatus" class="com.dearlordylord.quint.idea.annotator.QuintCheckStatusAction" text="Quint Check Status" description="Show the current file's checking status">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+    </actions>
 </idea-plugin>

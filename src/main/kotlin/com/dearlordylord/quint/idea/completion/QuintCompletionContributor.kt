@@ -103,9 +103,10 @@ class QuintCompletionContributor : CompletionContributor() {
                 QuintVocabulary.KEYWORDS +
                 QuintVocabulary.TYPE_KEYWORDS
             val scopePosition = parameters.originalPosition ?: parameters.position
-            val declarations = QuintScopeResolver.findVisibleDeclarations(scopePosition)
-            for (decl in declarations) {
-                val name = (decl as? PsiNamedElement)?.name ?: continue
+            val declarations = QuintScopeResolver.findVisibleSymbols(parameters.position, scopePosition)
+            for (symbol in declarations) {
+                val decl = symbol.declaration
+                val name = symbol.name
                 if (name in existingNames) continue
                 val qualifier = QuintPsiUtils.getDeclarationQualifier(decl) ?: ""
                 if (dotContext && !QuintVocabulary.isDotCallableQualifier(qualifier)) continue
